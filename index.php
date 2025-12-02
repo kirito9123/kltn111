@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <button class="banner-next">&#10095;</button>
     </div>
   <?php else: ?>
-    <p class="no-km">Không có khuyến mãi nào.</p>
+    <p class="no-km">Không có khuyến mãi nào tất cả.</p>
   <?php endif; ?>
 </div>
 
