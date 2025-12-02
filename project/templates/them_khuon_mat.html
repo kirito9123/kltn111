@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Thêm khuôn mặt</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #ecf0f1;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      display: flex;
+      flex: 1;
+      padding: 40px;
+      align-items: center;
+      justify-content: center;
+      gap: 50px;
+    }
+
+    .left-panel {
+      flex: 1;
+      text-align: left;
+      max-width: 500px;
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    .right-panel {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    h2 {
+      color: #34495e;
+      margin-bottom: 25px;
+      font-size: 2.2rem;
+    }
+
+    input {
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    label {
+      font-weight: bold;
+      color: #555;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 12px 25px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.3s;
+    }
+
+    button#verifyButton {
+      background-color: #27ae60;
+      color: white;
+    }
+
+    button#verifyButton:hover {
+      background-color: #219150;
+    }
+
+    button#backButton {
+      background-color: #3498db;
+      color: white;
+    }
+
+    button#backButton:hover {
+      background-color: #2980b9;
+    }
+
+    video {
+      border: 5px solid #3498db;
+      border-radius: 15px;
+      width: 100%;
+      max-width: 640px;
+      height: auto;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      display: none;
+      /* Ẩn mặc định */
+    }
+
+    #result-container {
+      width: 100%;
+      text-align: center;
+      padding: 20px;
+      background: #f8f9fa;
+      border-top: 1px solid #eee;
+      min-height: 100px;
+    }
+
+    #result {
+      font-weight: bold;
+      color: #2c3e50;
+      white-space: pre-line;
+      font-size: 2rem;
+      /* To cỡ H2 */
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <div class="left-panel">
+      <h2>📷 Thêm/Cập nhật Khuôn mặt</h2>
+      <form id="faceForm">
+        <label>Mã Nhân Sự (mans):</label>
+        <input type="text" id="mans" required placeholder="Nhập mã nhân sự...">
+
+        <label>Họ tên đầy đủ (Name_admin):</label>
+        <input type="text" id="Name_admin" required placeholder="Nhập họ tên...">
+
+        <button id="verifyButton" type="button" onclick="kiemTraVaBatCamera()">🎥 Xác minh & Chụp Ảnh</button>
+        <button id="backButton" type="button" onclick="quayLai()">🔙 Quay lại</button>
+      </form>
+    </div>
+
+    <div class="right-panel">
+      <video id="video" autoplay></video>
+    </div>
+  </div>
+
+  <div id="result-container">
+    <div id="result"></div>
+  </div>
+
+  <script>
+    let streamStarted = false;
+    let fetched_id_admin = null;
+    const video = document.getElementById('video');
+    const resultP = document.getElementById('result');
+    const verifyBtn = document.getElementById('verifyButton');
+
+    // Danh sách các thử thách liveness (Tiếng Việt) - Chỉ dùng Frontal cho đăng ký
+    const challenges = [
+      { type: 'blink', text: 'Vui lòng CHỚP MẮT (Blink)' },
+      { type: 'smile', text: 'Vui lòng CƯỜI TƯƠI (Smile hoặc há miệng to ra) và nhìn thẳng vào camera' }
+    ];
+
+    function kiemTraVaBatCamera() {
+      const mans_input = document.getElementById('mans').value.trim();
+      const name_admin_input = document.getElementById('Name_admin').value.trim();
+      fetched_id_admin = null;
+      verifyBtn.disabled = true;
+      resultP.style.color = "#888"; resultP.innerText = "Đang kiểm tra...";
+
+      // Kiểm tra nếu không có mã nhân sự hoặc tên đầy đủ
+      if (!mans_input || !name_admin_input) {
+        resultP.style.color = "red";
+        resultP.innerText = "⚠️ Vui lòng nhập Mã Nhân Sự và Họ tên!";
+        verifyBtn.disabled = false;
+        return;
+      }
+
+      // Gửi yêu cầu xác minh thông tin nhân sự
+      fetch('/api/kiem_tra_nhansu_bang_mans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mans: mans_input, Name_admin: name_admin_input })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.exists) {
+            // Nếu nhân sự không tồn tại hoặc không khớp
+            resultP.style.color = "red";
+            resultP.innerText = `❌ ${data.message || 'Mã NS và Họ tên không khớp/tồn tại'}`;
+            verifyBtn.disabled = false;
+            return Promise.reject('Nhân sự không hợp lệ');
+          }
+
+          // Nếu nhân sự hợp lệ, lấy id_admin
+          fetched_id_admin = data.id_admin;
+          resultP.style.color = "blue";
+          resultP.innerText = `✅ Xác nhận: ${name_admin_input} (ID: ${fetched_id_admin}).\n Bật webcam...`;
+          video.style.display = 'block'; // Hiển thị video
+
+          // Khởi động webcam
+          return navigator.mediaDevices.getUserMedia({ video: true });
+        })
+        .then(stream => {
+          video.srcObject = stream; // Bắt đầu stream video
+          streamStarted = true;
+
+          // Chờ video load metadata để tránh lỗi width/height = 0
+          return new Promise(resolve => {
+            video.onloadedmetadata = () => {
+              resolve(); // Khi video đã sẵn sàng
+            };
+          });
+        })
+        .then(() => {
+          // Bắt đầu quá trình chụp ảnh liveness
+          startLivenessCapture(name_admin_input);
+        })
+        .catch(err => {
+          // Xử lý lỗi nếu không xác minh được nhân sự hoặc lỗi khác
+          if (err !== 'Nhân sự không hợp lệ') {
+            resultP.style.color = "red";
+            resultP.innerText = "❌ Lỗi: " + (err.message || err);
+          }
+          verifyBtn.disabled = false;
+          stopCamera(); // Dừng camera nếu có lỗi
+        });
+    }
+
+
+    function startLivenessCapture(name_admin) {
+      // 1. Chọn ngẫu nhiên một thử thách
+      const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+      console.log("Thử thách được chọn:", randomChallenge.type);
+
+      // 2. Hiển thị hướng dẫn
+      resultP.style.color = "orange";
+      resultP.innerText = `📸 Đang quét khuôn mặt cho ${name_admin}...\n👀 ${randomChallenge.text}`;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      const frames = [];
+      const maxFrames = 8; // Chụp 8 khung hình
+      const intervalTime = 200; // Cách nhau 200ms -> Tổng ~1.6s
+      let count = 0;
+
+      // 3. Bắt đầu chụp liên tục
+      const captureInterval = setInterval(() => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          if (blob) frames.push(blob);
+        }, 'image/jpeg', 0.9);
+
+        count++;
+        if (count >= maxFrames) {
+          clearInterval(captureInterval);
+          resultP.innerText = "⏳ Đang xử lý dữ liệu...";
+          // Gửi ảnh và loại thử thách về server
+          setTimeout(() => sendFrames(frames, name_admin, randomChallenge.type), 100);
+        }
+      }, intervalTime);
+    }
+
+    function sendFrames(frames, name_admin, challengeType) {
+      if (frames.length === 0) {
+        resultP.style.color = "red"; resultP.innerText = "❌ Lỗi: Không chụp được ảnh nào!";
+        verifyBtn.disabled = false;
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('id_admin', fetched_id_admin);
+      formData.append('Name_admin', name_admin);
+      // Gửi loại thử thách
+      formData.append('challenge', challengeType);
+
+      frames.forEach((blob, index) => {
+        formData.append('images', blob, `frame_${index}.jpg`);
+      });
+
+      fetch('/api/them_khuon_mat', {
+        method: 'POST',
+        body: formData
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            resultP.style.color = "green";
+            let countdown = 5;
+            resultP.innerText = `${data.message}\n🔁 Quay về trang chủ sau ${countdown} giây...`;
+
+            stopCamera();
+
+            const interval = setInterval(() => {
+              countdown--;
+              if (countdown <= 0) {
+                clearInterval(interval);
+                window.location.href = "/";
+              } else {
+                resultP.innerText = `${data.message}\n🔁 Quay về trang chủ sau ${countdown} giây...`;
+              }
+            }, 1000);
+          } else {
+            resultP.style.color = "red";
+            resultP.innerText = "❌ " + data.message;
+            verifyBtn.disabled = false;
+          }
+        })
+        .catch(err => {
+          resultP.style.color = "red";
+          resultP.innerText = "❌ Lỗi kết nối: " + err;
+          verifyBtn.disabled = false;
+        });
+    }
+
+    function stopCamera() {
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+      streamStarted = false;
+      video.style.display = "none";
+    }
+
+    function quayLai() { window.history.back(); }
+
+    window.addEventListener('beforeunload', stopCamera);
+  </script>
+
+</body>
+
+</html>

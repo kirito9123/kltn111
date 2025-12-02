@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Check Out</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #fefefe;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      display: flex;
+      flex: 1;
+      padding: 40px;
+      align-items: center;
+      justify-content: center;
+      gap: 50px;
+    }
+
+    .left-panel {
+      flex: 1;
+      text-align: left;
+      max-width: 500px;
+    }
+
+    .right-panel {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    h2 {
+      color: #e74c3c;
+      margin-bottom: 25px;
+      font-size: 2.5rem;
+    }
+
+    video {
+      border: 5px solid #e74c3c;
+      border-radius: 15px;
+      width: 100%;
+      max-width: 640px;
+      height: auto;
+      background-color: #ddd;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 15px 30px;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button#captureButton {
+      background-color: #c0392b;
+      color: white;
+    }
+
+    button#captureButton:hover {
+      background-color: #a93226;
+    }
+
+    button#backButton {
+      background-color: #3498db;
+      color: white;
+      margin-left: 10px;
+    }
+
+    button#backButton:hover {
+      background-color: #2980b9;
+    }
+
+    #result-container {
+      width: 100%;
+      text-align: center;
+      padding: 20px;
+      background: #f8f9fa;
+      border-top: 1px solid #eee;
+      min-height: 100px;
+    }
+
+    #result {
+      font-weight: bold;
+      color: #2d3436;
+      white-space: pre-line;
+      font-size: 2rem;
+      /* To cỡ H2 */
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="left-panel">
+      <h2>🚪 Check Out</h2>
+      <p style="font-size: 1.1rem; color: #555;">
+        Xác nhận ra về. Vui lòng thực hiện theo yêu cầu.
+      </p>
+      <button id="captureButton" onclick="chupVaCheckOut()">Bắt đầu Check Out</button>
+      <button id="backButton" onclick="quayLai()">Quay lại</button>
+    </div>
+
+    <div class="right-panel">
+      <video id="video" autoplay></video>
+    </div>
+  </div>
+
+  <div id="result-container">
+    <div id="result"></div>
+  </div>
+
+  <script>
+    let stream = null;
+
+    // Bật webcam khi trang load
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(s => {
+        stream = s;
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+        video.onloadedmetadata = () => { /* Ready */ };
+      })
+      .catch(err => alert("Không thể mở webcam: " + err));
+
+    // Danh sách thử thách BƯỚC 1 (Ngẫu nhiên)
+    const step1Challenges = [
+      { type: 'turn_left', text: 'Bước 1: Vui lòng QUAY TRÁI (Turn Left)' },
+      { type: 'turn_right', text: 'Bước 1: Vui lòng QUAY PHẢI (Turn Right)' },
+      { type: 'smile', text: 'Bước 1: Vui lòng CƯỜI TƯƠI (Smile)' }
+    ];
+
+    // Thử thách BƯỚC 2 (Cố định)
+    const step2Challenge = { type: 'blink', text: 'Bước 2: Nhìn thẳng và CHỚP MẮT (Blink)' };
+
+    function chupVaCheckOut() {
+      const video = document.getElementById('video');
+      const result = document.getElementById('result');
+
+      if (!stream) {
+        alert("Webcam chưa sẵn sàng!");
+        return;
+      }
+
+      // 1. Chọn thử thách Bước 1
+      const challenge1 = step1Challenges[Math.floor(Math.random() * step1Challenges.length)];
+
+      // Thực hiện Bước 1
+      performStep(challenge1, (success1) => {
+        if (success1) {
+          result.style.color = "blue";
+          result.innerText = "✅ Bước 1 hoàn tất! Chuẩn bị Bước 2...";
+
+          setTimeout(() => {
+            performStep(step2Challenge, (success2) => {
+              // Bước 2 (Final)
+            }, true);
+          }, 1500);
+        }
+      });
+    }
+
+    function performStep(challengeObj, callback, isFinalStep = false) {
+      const video = document.getElementById('video');
+      const result = document.getElementById('result');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      // 1. Hiển thị đếm ngược
+      let countdown = 3;
+      result.style.color = "orange";
+      result.innerText = `📸 ${challengeObj.text}\nChuẩn bị: ${countdown}s`;
+
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          result.innerText = `📸 ${challengeObj.text}\nChuẩn bị: ${countdown}s`;
+        } else {
+          clearInterval(countdownInterval);
+          // 2. Bắt đầu chụp (1 giây)
+          startCapture();
+        }
+      }, 1000);
+
+      function startCapture() {
+        result.innerText = `📸 ${challengeObj.text}\nĐang quét...`;
+        const frames = [];
+        const maxFrames = 5; // 5 frames * 200ms = 1 giây
+        let count = 0;
+
+        const captureInterval = setInterval(() => {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(blob => {
+            if (blob) frames.push(blob);
+          }, 'image/jpeg', 0.9);
+
+          count++;
+          if (count >= maxFrames) {
+            clearInterval(captureInterval);
+            result.innerText = "⏳ Đang xử lý...";
+
+            if (isFinalStep) {
+              sendFramesFinal(frames, challengeObj.type);
+            } else {
+              sendFramesStep1(frames, challengeObj.type, callback);
+            }
+          }
+        }, 200);
+      }
+    }
+
+    function sendFramesStep1(frames, challengeType, callback) {
+      const result = document.getElementById('result');
+      const formData = new FormData();
+      frames.forEach((blob, i) => formData.append('images', blob, `f${i}.jpg`));
+      formData.append('challenge', challengeType);
+
+      fetch('/api/verify_liveness', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            callback(true);
+          } else {
+            result.style.color = "red";
+            result.innerText = `❌ Thất bại Bước 1: ${data.message}`;
+            callback(false);
+          }
+        })
+        .catch(err => {
+          result.style.color = "red";
+          result.innerText = "❌ Lỗi kết nối: " + err;
+          callback(false);
+        });
+    }
+
+    function sendFramesFinal(frames, challengeType) {
+      const result = document.getElementById('result');
+      const formData = new FormData();
+      frames.forEach((blob, i) => formData.append('images', blob, `f${i}.jpg`));
+      formData.append('challenge', challengeType);
+
+      fetch('/api/check_out', { method: 'POST', body: formData })
+        .then(res => res.text())
+        .then(msg => {
+          if (msg.includes("✅")) {
+            result.style.color = "green";
+            let countdown = 5;
+            result.innerText = `${msg}\n🔁 Quay về trang chủ sau ${countdown} giây...`;
+
+            if (stream) {
+              stream.getTracks().forEach(track => track.stop());
+              document.getElementById('video').srcObject = null;
+              stream = null;
+            }
+
+            const interval = setInterval(() => {
+              countdown--;
+              if (countdown <= 0) {
+                clearInterval(interval);
+                window.location.href = '/';
+              } else {
+                result.innerText = `${msg}\n🔁 Quay về trang chủ sau ${countdown} giây...`;
+              }
+            }, 1000);
+          } else {
+            result.style.color = "red";
+            result.innerText = msg;
+          }
+        })
+        .catch(err => {
+          result.style.color = "red";
+          result.innerText = "❌ Lỗi: " + err;
+        });
+    }
+
+    function quayLai() {
+      window.history.back();
+    }
+  </script>
+
+</body>
+
+</html>
