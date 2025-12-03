@@ -21,11 +21,15 @@ $thang = isset($_GET['thang']) ? $_GET['thang'] : date('m');
 $nam = isset($_GET['nam']) ? $_GET['nam'] : date('Y');
 
 // Tính toán số liệu
-$tongThu = $tk->getTongDoanhThu($thang, $nam);
-$chiLuong = $tk->getTongChiLuong($thang, $nam);
-$chiNhapHang = $tk->getTongChiPhiKhac($thang, $nam);
+$tongThuSystem = $tk->getTongDoanhThu($thang, $nam); // Doanh thu trên hệ thống
+$chenhLech = $tk->getChenhLech($thang, $nam); // Tổng chênh lệch tiền mặt
+$tongThuThuc = $tongThuSystem + $chenhLech; // Doanh thu thực tế
+
+$chiLuong = $tk->getTongLuong($thang, $nam); // Lương thực tế (đã chốt)
+$chiNhapHang = $tk->getTongChiPhiKhac($thang, $nam); // Chi phí nhập hàng
 $tongChi = $chiLuong + $chiNhapHang;
-$loiNhuan = $tongThu - $tongChi;
+
+$loiNhuan = $tongThuThuc - $tongChi;
 
 $listThu = $tk->getListDoanhThu($thang, $nam);
 $listChi = $tk->getListChiPhi($thang, $nam);
@@ -185,9 +189,9 @@ $listChi = $tk->getListChiPhi($thang, $nam);
 
         <div class="stat-box">
             <div class="card green">
-                <h3>Tổng Doanh Thu</h3>
-                <div class="num"><?php echo number_format($tongThu); ?> ₫</div>
-                <small>(Tiền khách trả + Đặt bàn)</small>
+                <h3>Tổng Doanh Thu Thực</h3>
+                <div class="num"><?php echo number_format($tongThuThuc); ?> ₫</div>
+                <small>(Hệ thống: <?php echo number_format($tongThuSystem); ?> + Lệch: <?php echo number_format($chenhLech); ?>)</small>
             </div>
             <div class="card red">
                 <h3>Tổng Chi Phí</h3>

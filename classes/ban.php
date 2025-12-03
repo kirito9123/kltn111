@@ -223,4 +223,15 @@ class BanService {
         $msg = $res['msg'] ?? '';
         return ['redirect'=>"danhsachdatban.php?{$qs}&msg=".urlencode($msg)];
     }
+
+    public function resetTableStatus($id_ban) {
+        $id_ban = (int)$id_ban;
+        $query = "UPDATE ban 
+                  SET trangthai = 0, 
+                      hopdong_id = NULL 
+                  WHERE id_ban = {$id_ban}";
+        
+        $result = $this->db->update($query);
+        return $result;
+    }
 }

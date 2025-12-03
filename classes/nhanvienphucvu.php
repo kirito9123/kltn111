@@ -28,12 +28,13 @@ class NhanVienPhucVu
                 tg, 
                 dates, 
                 ghichu,
-                noidung  /* Cột này dùng để trích xuất Tên Bàn */
+                noidung
             FROM 
                 hopdong 
             WHERE 
                 status = 1  
-                AND dates = CURDATE() 
+                AND dates = CURDATE()
+                AND (payment_status IS NULL OR payment_status <> 'cancelled')
             ORDER BY 
                 id ASC
         ";
@@ -41,6 +42,7 @@ class NhanVienPhucVu
         $result = $this->db->select($query); 
         return $result;
     }
+
 
     /**
      * 2. Lấy danh sách đơn hàng ĐÃ GIAO (status = 2) TRONG NGÀY HÔM NAY (MỚI THÊM)
@@ -107,6 +109,28 @@ class NhanVienPhucVu
         
         $update_row = $this->db->update($query); 
         return $update_row ? true : false;
+    }
+
+    public function get_don_bi_huy_hom_nay() {
+        $query = "
+            SELECT id, tenKH, phong, 
+                tg, 
+                dates, 
+                ghichu,
+                noidung,
+                updated_at,      /* để reuse chung với processOrderList */
+                payment_status
+            FROM 
+                hopdong 
+            WHERE 
+                payment_status = 'cancelled'
+                AND dates = CURDATE()
+            ORDER BY 
+                id DESC
+        ";
+        
+        $result = $this->db->select($query); 
+        return $result;
     }
 }
 ?>

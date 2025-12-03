@@ -171,7 +171,7 @@ $rs_cashier = $db->select($q_cashier_notes);
         <div class="dashboard-grid">
             <div class="card-stat border-blue" onclick="document.getElementById('revenueModal').style.display='flex'" title="Bấm để xem chi tiết">
                 <h3>Tổng Doanh Thu <i class="fa fa-search-plus" style="float:right"></i></h3>
-                <div class="num"><?php echo number_format($data_rev['total_rev']); ?> đ</div>
+                <div class="num"><?php echo number_format($data_rev['total_rev'] ?? 0); ?> đ</div>
                 <div class="sub">
                     <?php echo $data_rev['total_orders']; ?> đơn hàng
                 </div>
@@ -179,13 +179,13 @@ $rs_cashier = $db->select($q_cashier_notes);
             
             <div class="card-stat border-green">
                 <h3>Tiền Về Tài Khoản (VNPay)</h3>
-                <div class="num"><?php echo number_format($data_rev['total_vnpay']); ?> đ</div>
+                <div class="num"><?php echo number_format($data_rev['total_vnpay'] ?? 0); ?> đ</div>
                 <div class="sub">Chiếm <?php echo ($data_rev['total_rev'] > 0) ? round(($data_rev['total_vnpay']/$data_rev['total_rev'])*100, 1) : 0; ?>%</div>
             </div>
 
             <div class="card-stat border-orange">
                 <h3>Tiền Mặt Thu Ngân</h3>
-                <div class="num"><?php echo number_format($data_rev['total_cash']); ?> đ</div>
+                <div class="num"><?php echo number_format($data_rev['total_cash'] ?? 0); ?> đ</div>
                 <div class="sub">Cần thu về két</div>
             </div>
 
@@ -195,7 +195,7 @@ $rs_cashier = $db->select($q_cashier_notes);
                     $diff = $data_diff['total_diff'];
                     $color = ($diff < 0) ? '#e74c3c' : (($diff > 0) ? '#27ae60' : '#7f8c8d');
                 ?>
-                <div class="num" style="color: <?php echo $color; ?>"><?php echo number_format($diff); ?> đ</div>
+                <div class="num" style="color: <?php echo $color; ?>"><?php echo number_format($diff ?? 0); ?> đ</div>
                 <div class="sub">Tổng hợp từ <?php echo $data_diff['total_shifts']; ?> lần chốt ca</div>
             </div>
         </div>
@@ -242,7 +242,7 @@ $rs_cashier = $db->select($q_cashier_notes);
                                 <td>
                                     <?php if($c['chenh_lech'] != 0): ?>
                                         <span class="<?php echo ($c['chenh_lech'] < 0) ? 'badge-loss' : 'badge-gain'; ?>">
-                                            <?php echo ($c['chenh_lech'] < 0) ? 'Thiếu ' : 'Dư '; echo number_format(abs($c['chenh_lech'])); ?>đ
+                                            <?php echo ($c['chenh_lech'] < 0) ? 'Thiếu ' : 'Dư '; echo number_format(abs($c['chenh_lech'] ?? 0)); ?>đ
                                         </span><br>
                                     <?php endif; ?>
                                     <?php echo $c['ghi_chu']; ?>

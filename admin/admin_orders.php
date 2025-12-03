@@ -3,12 +3,42 @@
 require_once '../classes/nhanvienbep.php';
 $bep = new nhanvienbep();
 
-/* ==== XỬ LÝ AJAX ==== */
+/* ==== XỬ LÝ AJAX CẬP NHẬT TRẠNG THÁI (DONE) ==== */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'capnhat_bep') {
     $id = (int)($_POST['id'] ?? 0);
     // Gọi hàm hoan_thanh_don trong class mới đã sửa logic trừ kho món mới
     $ok = ($id > 0) ? $bep->hoan_thanh_don($id) : false;
     echo $ok ? 'success' : 'error';
+    exit;
+}
+
+/* ==== XỬ LÝ AJAX KIỂM TRA ĐƠN HỦY (POLLING) ==== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'check_cancelled') {
+    $order_ids = json_decode($_POST['order_ids'] ?? '[]');
+    $updates = [];
+    
+    // Đảm bảo không có output thừa trước khi gửi JSON
+    if (ob_get_contents()) ob_clean(); 
+    header('Content-Type: application/json; charset=utf-8');
+
+    if (!empty($order_ids)) {
+        // Chuyển mảng ID thành chuỗi an toàn cho truy vấn SQL (sử dụng implode và intval)
+        $safe_ids = array_map('intval', $order_ids);
+        $id_list = implode(',', $safe_ids);
+
+        // Truy vấn database chỉ để lấy ID các đơn hàng đang hiển thị MÀ ĐÃ bị hủy
+        // Giả sử $bep->db là đối tượng Database trong lớp nhanvienbep
+        $query = "SELECT id FROM hopdong WHERE id IN ({$id_list}) AND payment_status = 'cancelled'";
+        $result = $bep->db->select($query); 
+
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $updates[] = (int)$row['id'];
+            }
+        }
+    }
+
+    echo json_encode(['cancelled_ids' => $updates]);
     exit;
 }
 
@@ -20,13 +50,18 @@ require_once '../helpers/format.php';
 $fm = new Format();
 
 // 1. LẤY DỮ LIỆU
+// [SỬA LẠI] Cập nhật các giá trị lọc mới
 $view = $_GET['view'] ?? 'cho_che_bien';
 $date = isset($_GET['date']) && !empty($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 
 if ($view == 'bydate') {
     $rsOrders = $bep->get_danh_sach_don('lich_su', $date);
-} elseif ($view == 'today_all') {
+} elseif ($view == 'hom_nay') { // Đã đổi tên từ 'today_all' thành 'hom_nay'
     $rsOrders = $bep->get_danh_sach_don('hom_nay');
+} elseif ($view == 'dat_truoc') {
+    $rsOrders = $bep->get_danh_sach_don('dat_truoc');
+} elseif ($view == 'don_huy') {
+    $rsOrders = $bep->get_danh_sach_don('don_huy');
 } else {
     $rsOrders = $bep->get_danh_sach_don('cho_che_bien');
 }
@@ -37,6 +72,7 @@ if ($rsOrders) {
     while ($row = $rsOrders->fetch_assoc()) {
         $id = $row['id'];
         $deadline = $bep->tinh_deadline($row['dates'], $row['tg']);
+        $is_cancelled = ($row['payment_status'] == 'cancelled'); // Cờ kiểm tra đơn hủy
 
         // --- LẤY MÓN ĂN ---
         $items = [];
@@ -53,7 +89,8 @@ if ($rsOrders) {
                     'thanhtien' => $r['thanhtien'],
                     'trangthai' => $r['trangthai'] // Lấy trạng thái từ DB
                 ];
-                if ($r['trangthai'] == 0) $has_new_items = true;
+                // Chỉ kiểm tra món mới nếu đơn CHƯA bị hủy
+                if ($r['trangthai'] == 0 && !$is_cancelled) $has_new_items = true;
             }
         }
 
@@ -78,7 +115,8 @@ if ($rsOrders) {
             'status'        => $row['status'],
             'deadline'      => $deadline,
             'items'         => $items,
-            'has_new_items' => $has_new_items
+            'has_new_items' => $has_new_items,
+            'is_cancelled'  => $is_cancelled, // THÊM CỜ HỦY
         ];
     }
 }
@@ -115,11 +153,24 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
         box-shadow: 0 5px 15px rgba(0,0,0,0.08); overflow: hidden;
         display: flex; flex-direction: column;
         border: 1px solid #eee; transition: transform 0.2s;
+        position: relative; /* Để đặt badge hủy */
     }
     .order-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.12); }
     
     /* [MỚI] Nếu có món mới thì viền đỏ nổi bật */
     .order-card.has-new { border: 2px solid #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.1); }
+    
+    /* [MỚI] Style cho đơn hủy */
+    .order-card.is-cancelled { opacity: 0.7; border: 2px dashed #dc3545; background: #ffebee; }
+
+    /* [MỚI] Badge Hủy */
+    .cancel-badge {
+        position: absolute; top: 10px; right: 10px;
+        background: #dc3545; color: white; padding: 5px 10px;
+        font-weight: 800; font-size: 14px; border-radius: 6px;
+        z-index: 10; transform: rotate(5deg);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
 
     .order-card__header {
         padding: 12px 15px; background: #fff; border-bottom: 2px solid #f0f0f0;
@@ -144,6 +195,9 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
     .cd-orange { background: #fff3e0; color: #ef6c00; }
     .cd-red    { background: #ffebee; color: #c62828; animation: blink 1s infinite; }
     @keyframes blink { 50% { opacity: 0.6; } }
+    
+    /* Đơn hủy không cần countdown */
+    .is-cancelled .order-countdown { background: #f8d7da !important; color: #721c24 !important; }
 
     .order-card__body { padding: 0; flex: 1; min-height: 100px; }
     .item-list { list-style: none; margin: 0; padding: 0; }
@@ -182,6 +236,16 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
     /* Nút chỉ active khi có món mới */
     .btn-done.only-view { background: #95a5a6; cursor: default; }
     .status-done { text-align: center; color: #27ae60; font-weight: 700; display: block; padding: 8px; border: 2px solid #27ae60; border-radius: 6px; }
+    
+    /* Đơn hủy: nút hành động bị thay thế */
+    .is-cancelled .order-card__footer .btn-done, 
+    .is-cancelled .order-card__footer .status-done,
+    .is-cancelled .order-card__footer .only-view {
+        background: #95a5a6 !important; 
+        cursor: not-allowed !important;
+        font-style: italic;
+        color: #fff;
+    }
 
     /* Bộ lọc */
     .filter-bar { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; background: #fff; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex-wrap: wrap;}
@@ -202,7 +266,13 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
             <a href="?view=cho_che_bien" class="btn-filter <?php echo ($view=='cho_che_bien')?'active':''; ?>">
                 🔥 Đang chờ làm
             </a>
-            <a href="?view=today_all" class="btn-filter <?php echo ($view=='today_all')?'active':''; ?>">
+            <a href="?view=dat_truoc" class="btn-filter <?php echo ($view=='dat_truoc')?'active':''; ?>">
+                📅 Đặt trước
+            </a>
+            <a href="?view=don_huy" class="btn-filter <?php echo ($view=='don_huy')?'active':''; ?>" style="background:#dc3545; color:white; border-color:#dc3545;">
+                ❌ Đơn đã hủy
+            </a>
+            <a href="?view=hom_nay" class="btn-filter <?php echo ($view=='hom_nay')?'active':''; ?>">
                 📋 Tất cả hôm nay
             </a>
             
@@ -217,13 +287,20 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
         <div class="block" style="padding:0;">
             <?php if (empty($orders)): ?>
                 <div style="text-align:center; padding:60px; background:#fff; border-radius:8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
-                    <h3 style="color:#999; margin:0;">Hiện tại bếp đang rảnh, chưa có đơn mới!</h3>
+                    <h3 style="color:#999; margin:0;">Hiện tại bếp đang rảnh, chưa có đơn nào trong mục này!</h3>
                 </div>
             <?php else: ?>
                 <div class="order-board">
                     <?php foreach ($orders as $o): ?>
-                        <div class="order-card <?php echo $o['has_new_items'] ? 'has-new' : ''; ?>">
+                        <div class="order-card 
+                            <?php echo $o['is_cancelled'] ? 'is-cancelled' : ''; ?>
+                            <?php echo ($o['has_new_items'] && !$o['is_cancelled']) ? 'has-new' : ''; ?>
+                        ">
                             
+                            <?php if ($o['is_cancelled']): ?>
+                                <div class="cancel-badge">ĐÃ HỦY</div>
+                            <?php endif; ?>
+
                             <div class="order-card__header">
                                 <div class="header-left">
                                     <span class="order-id-badge">Đơn #<?php echo $o['id']; ?></span>
@@ -236,7 +313,11 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
                                 </div>
                             </div>
 
-                            <?php if ($o['status'] == 0): ?>
+                            <?php if ($o['is_cancelled']): ?>
+                                <div class="order-countdown" style="background:#f8d7da; color:#721c24;">
+                                    ❌ ĐƠN ĐÃ HỦY - NGƯNG LÀM
+                                </div>
+                            <?php elseif ($o['status'] == 0): ?>
                                 <div class="order-countdown" data-deadline="<?php echo $o['deadline']; ?>">
                                     <i class="fa fa-clock-o"></i> Đang tải...
                                 </div>
@@ -263,7 +344,8 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
                                             <li class="order-item <?php echo $cls_item; ?>">
                                                 <span class="item-name">
                                                     <?php echo $it['mon']; ?> 
-                                                    <?php if($is_new): ?><span class="badge-new">MỚI</span><?php endif; ?>
+                                                    <?php if($is_new && !$o['is_cancelled']): ?><span class="badge-new">MỚI</span><?php endif; ?>
+                                                    <?php if($is_new && $o['is_cancelled']): ?><span class="badge-new" style="background:#f39c12;">CHƯA LÀM</span><?php endif; ?>
                                                 </span>
                                                 <span class="item-qty">x<?php echo $it['sl']; ?></span>
                                             </li>
@@ -278,7 +360,9 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
                                     <span><?php echo vnd($o['tong_tien']); ?></span>
                                 </div>
                                 
-                                <?php if ($o['has_new_items']): ?>
+                                <?php if ($o['is_cancelled']): ?>
+                                    <span class="status-done" style="background:#dc3545; color:white; border-color:#dc3545;">ĐƠN ĐÃ HỦY</span>
+                                <?php elseif ($o['has_new_items']): ?>
                                     <button class="btn-done" data-id="<?php echo $o['id']; ?>">
                                         <i class="fa fa-check-circle"></i> XONG CÁC MÓN MỚI
                                     </button>
@@ -299,6 +383,7 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
 </div>
 
 <script>
+    // Hàm cập nhật thời gian còn lại (giữ nguyên)
     function updateCountdown() {
         const now = new Date().getTime();
         document.querySelectorAll('.order-countdown').forEach(el => {
@@ -307,6 +392,9 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
 
             const deadline = new Date(deadlineStr).getTime();
             const diff = deadline - now; 
+
+            // Không update countdown nếu đơn đã hủy (đã có cảnh báo)
+            if (el.closest('.order-card').classList.contains('is-cancelled')) return;
 
             let totalSec = Math.floor(Math.abs(diff) / 1000);
             let mins = Math.floor(totalSec / 60);
@@ -330,10 +418,59 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
     setInterval(updateCountdown, 1000);
     updateCountdown();
 
+    // ==========================================================
+    // [CẬP NHẬT] HÀM KIỂM TRA ĐƠN HỦY TỰ ĐỘNG (AJAX POLLING)
+    // ==========================================================
+    function checkCancelledOrders() {
+        // 1. Lấy tất cả ID đơn hàng đang hiển thị
+        const current_ids = Array.from(document.querySelectorAll('.order-card')).map(card => {
+            // Chỉ kiểm tra các đơn chưa bị hủy trên giao diện (để tránh popup liên tục)
+            if (!card.classList.contains('is-cancelled')) {
+                // Phải tìm nút có data-id, có thể là btn-done hoặc status-done
+                const idElement = card.querySelector('.btn-done') || card.querySelector('.status-done');
+                if (idElement && idElement.getAttribute('data-id')) {
+                     return parseInt(idElement.getAttribute('data-id'));
+                }
+            }
+            return null;
+        }).filter(id => id); // Lọc các ID null
+
+        if (current_ids.length === 0) return;
+
+        let formData = new FormData();
+        formData.append('action', 'check_cancelled');
+        formData.append('order_ids', JSON.stringify(current_ids));
+
+        fetch("admin_orders.php", {
+            method: "POST",
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.cancelled_ids && data.cancelled_ids.length > 0) {
+                // 2. Phát hiện đơn hàng đã bị hủy
+                const cancelled_list = data.cancelled_ids.join(', #');
+                
+                // Hiển thị Popup Cảnh báo
+                alert("🚨 CẢNH BÁO KHẨN CẤP!\n\nCÁC ĐƠN HÀNG ĐÃ BỊ HỦY:\n#" + cancelled_list + "\n\nVUI LÒNG NGƯNG CHẾ BIẾN NGAY LẬP TỨC!");
+                
+                // Sau khi bếp xác nhận, tải lại trang để cập nhật giao diện
+                location.reload(); 
+            }
+        })
+        .catch(err => console.error("Lỗi Polling Server:", err));
+    }
+
+    // Đặt bộ đếm thời gian: 10 giây
+    setInterval(checkCancelledOrders, 10000); 
+    
+    // ==========================================================
+    // HÀM XỬ LÝ NÚT XONG CÁC MÓN MỚI (giữ nguyên)
+    // ==========================================================
     document.querySelectorAll(".btn-done").forEach(btn => {
         btn.addEventListener("click", function () {
-            // [MỚI] Chặn click nếu là nút chỉ xem
-            if(this.classList.contains('only-view')) return;
+            // [MỚI] Chặn click nếu là nút chỉ xem hoặc đơn hủy
+            if(this.classList.contains('only-view') || this.closest('.order-card').classList.contains('is-cancelled')) return;
 
             const id = this.getAttribute("data-id");
             if (!confirm("Xác nhận Bếp đã làm xong các món MỚI của đơn #" + id + "?")) return;
@@ -347,9 +484,9 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
             .then(data => {
                 if (data.trim() === "success") {
                     const card = this.closest('.order-card');
-                    // Hiệu ứng load lại nhẹ nhàng
                     card.style.opacity = "0.5";
-                    setTimeout(() => location.reload(), 200);
+                    // Tải lại ngay sau khi hoàn thành để cập nhật trạng thái
+                    setTimeout(() => location.reload(), 200); 
                 } else {
                     alert("Lỗi cập nhật hoặc đơn đã xong!");
                 }

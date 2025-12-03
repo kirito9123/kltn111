@@ -28,16 +28,24 @@ class lichdangky
     /**
      * Lấy tất cả nhân sự đang làm việc kèm level
      */
+    // public function get_all_nhansu_active()
+    // {
+    //     // Lấy cả level từ tb_admin
+    //     $query = "SELECT ns.mans, ns.hoten, ta.level
+    //               FROM nhansu ns
+    //               JOIN tb_admin ta ON ns.id_admin = ta.id_admin
+    //               WHERE ns.trangthai = 1 ORDER BY ns.hoten ASC";
+    //     return $this->db->select($query);
+    // }
     public function get_all_nhansu_active()
     {
-        // Lấy cả level từ tb_admin
-        $query = "SELECT ns.mans, ns.hoten, ta.level
+        // THÊM ns.id_admin VÀO SELECT ĐỂ ĐỐI CHIẾU
+        $query = "SELECT ns.mans, ns.hoten, ns.id_admin, ta.level
                   FROM nhansu ns
                   JOIN tb_admin ta ON ns.id_admin = ta.id_admin
                   WHERE ns.trangthai = 1 ORDER BY ns.hoten ASC";
         return $this->db->select($query);
     }
-
     /**
      * Lấy tất cả các ca làm việc
      */
@@ -636,5 +644,34 @@ class lichdangky
                   SET trang_thai_cham_cong = 'Vắng', tien_phat = 500000 
                   WHERE ngay <= '$yesterday' AND trang_thai_cham_cong = 'Chưa chấm công'";
         return $this->db->update($query);
+    }
+    public function get_week_registrations_details($week_string)
+    {
+        list($start_date, $end_date) = $this->get_week_start_end($week_string);
+        if (!$start_date) return [];
+
+        // Lấy thông tin: Tên, Level, Ngày, Ca
+        $query = "SELECT dk.ngay, dk.id_ca, ns.hoten, dk.level
+                  FROM tbl_dangkylich dk
+                  JOIN nhansu ns ON dk.mans = ns.mans
+                  WHERE dk.ngay BETWEEN '$start_date' AND '$end_date'
+                  ORDER BY dk.level ASC, ns.hoten ASC"; // Ưu tiên xếp theo chức vụ rồi đến tên
+
+        $result = $this->db->select($query);
+
+        $data = [];
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $ngay = $row['ngay'];
+                $id_ca = $row['id_ca'];
+
+                // Gom nhóm theo Ngày và Ca
+                $data[$ngay][$id_ca][] = [
+                    'hoten' => $row['hoten'],
+                    'level' => $row['level']
+                ];
+            }
+        }
+        return $data;
     }
 } // End class lichdangky

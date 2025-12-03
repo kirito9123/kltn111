@@ -3,6 +3,7 @@
 $filepath = realpath(dirname(__FILE__));
 include_once($filepath . '/../lib/database.php');
 include_once($filepath . '/../helpers/format.php');
+include_once($filepath . '/../classes/ban.php');
 
 class nhanvienquay
 {
@@ -87,12 +88,24 @@ class nhanvienquay
     /**
      * Hủy đơn hàng (Soft delete hoặc đổi trạng thái)
      */
-    public function huy_don_hang($id_hopdong)
+    public function huy_don_hang($id_hopdong) // Bỏ $ly_do, dùng noidung thay thế
     {
         $id_hopdong = mysqli_real_escape_string($this->db->link, $id_hopdong);
-        // Giả sử status = 0 là ẩn, hoặc payment_status = 'cancelled'
-        $query = "UPDATE hopdong SET status = 0, payment_status = 'cancelled' WHERE id = '$id_hopdong'";
+        $query = "UPDATE hopdong 
+                  SET payment_status = 'cancelled', 
+                      status = 1 
+                  WHERE id = '$id_hopdong'";
+                  
         $result = $this->db->update($query);
+        return $result;
+    }
+
+    // --- THÊM HÀM MỚI: LẤY ĐƠN HÀNG ĐÃ HỦY ---
+    public function show_don_hang_da_huy()
+    {
+        // Lấy tất cả đơn có payment_status = 'cancelled'
+        $query = "SELECT * FROM hopdong WHERE payment_status = 'cancelled' ORDER BY updated_at DESC";
+        $result = $this->db->select($query);
         return $result;
     }
     
@@ -261,22 +274,51 @@ class nhanvienquay
     }
 
     // --- 10. THANH TOÁN HOÀN TẤT ĐƠN HÀNG ---
-    public function thanh_toan_hoan_tat($id_hd) {
+    public function thanh_toan_hoan_tat($id_hd, $payment_method = 'cash') {
         $id_hd = mysqli_real_escape_string($this->db->link, $id_hd);
-        
-        // Tính tổng tiền món lần cuối
+        $payment_method = mysqli_real_escape_string($this->db->link, $payment_method);
+            
+        // 1. Tính tổng tiền món lần cuối
         $tai_chinh = $this->lay_chi_tiet_tai_chinh($id_hd);
         $tong_tien = $tai_chinh['tong_tien_mon'];
 
-        // Cập nhật trạng thái completed, lưu tổng tiền thực tế món ăn
-        // Lưu ý: payment_status = 'completed' nghĩa là quy trình phục vụ kết thúc
+        // 2. Cập nhật trạng thái đơn hàng -> completed
         $query = "UPDATE hopdong 
-                  SET payment_status = 'completed', 
-                      thanhtien = '$tong_tien',
-                      updated_at = CURRENT_TIMESTAMP
-                  WHERE id = '$id_hd'";
-                  
-        return $this->db->update($query);
+            SET payment_status = 'completed', 
+                thanhtien = '$tong_tien',
+                payment_method = '$payment_method',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = '$id_hd'";
+            
+        $result = $this->db->update($query);
+
+        // 3. [QUAN TRỌNG] TRẢ BÀN VỀ TRẠNG THÁI TRỐNG (0)
+        if ($result) {
+            // Lấy danh sách ID bàn từ đơn hàng này (cột so_ban lưu chuỗi ví dụ: "1,5")
+            $get_ban = "SELECT so_ban FROM hopdong WHERE id = '$id_hd' LIMIT 1";
+            $res_ban = $this->db->select($get_ban);
+                
+            if ($res_ban) {
+                $row = $res_ban->fetch_assoc();
+                $str_ban = $row['so_ban']; // Ví dụ: "1,2" hoặc "5"
+                    
+                if (!empty($str_ban)) {
+                    // Tách chuỗi thành mảng các ID
+                    $arr_ban_ids = explode(',', $str_ban);
+                        
+                    // Khởi tạo BanService (truyền kết nối db hiện tại để tối ưu)
+                    $banSv = new BanService($this->db);
+                        
+                    foreach ($arr_ban_ids as $id_ban) {
+                        $id_ban = intval(trim($id_ban));
+                        if ($id_ban > 0) {
+                            $banSv->resetTableStatus($id_ban); // Hàm này bạn đã viết ở bước trước
+                        }
+                    }
+                }
+            }
+        }       
+        return $result;
     }
 
     public function lay_chi_tiet_tai_chinh($id_hd) {
@@ -420,6 +462,39 @@ class nhanvienquay
             }
         }
         return $data;
+    }
+
+    public function loc_don_hang($filter = 'all')
+    {
+        $today = date('Y-m-d');
+        
+        // START: KHÔNG LOẠI TRỪ ĐƠN HỦY - Lấy tất cả các đơn
+        $query = "SELECT * FROM hopdong WHERE 1=1"; // Lấy tất cả
+        // END: KHÔNG LOẠI TRỪ ĐƠN HỦY
+
+        if ($filter == 'today') {
+            // Lấy các đơn có ngày đặt (dates) là hôm nay HOẶC đơn tạo hôm nay (created_at)
+            $query .= " AND (TRIM(dates) = '$today' OR DATE(created_at) = '$today')";
+            $query .= " ORDER BY id DESC"; 
+            
+        } elseif ($filter == 'future') {
+            // Lấy các đơn có ngày đặt (dates) lớn hơn hôm nay
+            $query .= " AND TRIM(dates) > '$today'";
+            $query .= " ORDER BY dates ASC, tg ASC";
+            
+        } elseif ($filter == 'past') {
+            // Lấy các đơn có ngày đặt (dates) nhỏ hơn hôm nay
+            // Bỏ điều kiện payment_status = 'completed' để hiện tất cả các trạng thái trong quá khứ
+            $query .= " AND TRIM(dates) < '$today'";
+            $query .= " ORDER BY dates DESC, tg DESC";
+            
+        } else {
+            // 'all': Lấy tất cả (không lọc ngày)
+            $query .= " ORDER BY created_at DESC";
+        }
+
+        $result = $this->db->select($query);
+        return $result;
     }
 }
 ?>

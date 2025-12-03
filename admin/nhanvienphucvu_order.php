@@ -40,6 +40,7 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
         border-radius: 12px; font-size: 13px; min-width: 20px; text-align: center;
     }
     .badge-gray { background: #7f8c8d; }
+    .badge-cancelled { background: #c0392b; }
 
     /* === DANH SÁCH ĐƠN === */
     .service-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
@@ -52,6 +53,10 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
     /* Thẻ lịch sử sẽ có màu xám để phân biệt */
     .service-card.history-card { border-color: #bdc3c7; opacity: 0.95; }
     .service-card.history-card .service-card__header { background: #7f8c8d; }
+
+    /* Thẻ đơn bị hủy */
+    .service-card.cancelled-card { border-color: #c0392b; opacity: 0.95; }
+    .service-card.cancelled-card .service-card__header { background: #c0392b; }
 
     .service-card__header { padding: 15px; background: #2980b9; color: white; display: flex; justify-content: space-between; align-items: flex-start; }
     .card-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
@@ -73,7 +78,7 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
     .btn-served { width: 100%; padding: 15px; border: none; border-radius: 8px; background: #27ae60; color: white; font-weight: 800; cursor: pointer; font-size: 16px; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
     .btn-served:hover { background: #219150; }
     
-    /* Trạng thái Lịch sử */
+    /* Trạng thái Lịch sử / Hủy */
     .history-status { color: #27ae60; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 </style>
 
@@ -93,18 +98,31 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
                 <i class="fa fa-history"></i> LỊCH SỬ HÔM NAY 
                 <span id="badge-history" class="badge badge-gray">0</span>
             </button>
+            <button class="tab-btn" onclick="switchTab('cancelled')">
+                <i class="fa fa-ban"></i> ĐƠN BỊ HỦY
+                <span id="badge-cancelled" class="badge badge-cancelled">0</span>
+            </button>
         </div>
 
         <div class="block" style="padding:0;">
+            <!-- Đơn chờ giao -->
             <div id="wait-orders-container" class="service-board">
                 <div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#7f8c8d; font-size:16px;">
                     Đang tải danh sách chờ...
                 </div>
             </div>
 
+            <!-- Lịch sử đã giao hôm nay -->
             <div id="history-orders-container" class="service-board" style="display: none;">
                 <div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#7f8c8d; font-size:16px;">
                     Chưa có đơn nào được giao trong hôm nay.
+                </div>
+            </div>
+
+            <!-- Đơn bị hủy hôm nay -->
+            <div id="cancelled-orders-container" class="service-board" style="display: none;">
+                <div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#7f8c8d; font-size:16px;">
+                    Chưa có đơn nào bị hủy trong hôm nay.
                 </div>
             </div>
         </div>
@@ -114,14 +132,7 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
 <script>
     const API_URL = "api_service.php"; 
     const NOTIFICATION_INTERVAL = 3000; 
-    let lastOrderCount = 0;
     let currentTab = 'wait'; // Mặc định là tab chờ
-
-    function playNotificationSound() {
-        try {
-            // new Audio('path/to/bell.mp3').play(); 
-        } catch(e) { console.warn("Lỗi phát âm thanh:", e); }
-    }
 
     // Hàm chuyển Tab
     function switchTab(tab) {
@@ -129,16 +140,19 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
         
         // Đổi class Active cho nút bấm
         const btns = document.querySelectorAll('.tab-btn');
-        btns[0].className = tab === 'wait' ? 'tab-btn active' : 'tab-btn';
-        btns[1].className = tab === 'history' ? 'tab-btn active' : 'tab-btn';
+        btns.forEach(btn => btn.classList.remove('active'));
+        if (tab === 'wait') btns[0].classList.add('active');
+        if (tab === 'history') btns[1].classList.add('active');
+        if (tab === 'cancelled') btns[2].classList.add('active');
 
         // Ẩn/Hiện container tương ứng
-        document.getElementById('wait-orders-container').style.display = tab === 'wait' ? 'grid' : 'none';
-        document.getElementById('history-orders-container').style.display = tab === 'history' ? 'grid' : 'none';
+        document.getElementById('wait-orders-container').style.display      = (tab === 'wait') ? 'grid' : 'none';
+        document.getElementById('history-orders-container').style.display   = (tab === 'history') ? 'grid' : 'none';
+        document.getElementById('cancelled-orders-container').style.display = (tab === 'cancelled') ? 'grid' : 'none';
     }
 
-    // Hàm tạo thẻ đơn hàng (Dùng chung cho cả Chờ và Lịch sử)
-    function createOrderCard(order, isHistory = false) {
+    // Hàm tạo thẻ đơn hàng (Dùng chung cho Chờ / Lịch sử / Hủy)
+    function createOrderCard(order, isHistory = false, isCancelled = false) {
         let itemsHtml = order.items.map(it => `
             <li class="order-item">
                 <span class="item-name">${it.mon}</span>
@@ -150,7 +164,12 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
 
         // Xử lý Footer (Nút bấm hoặc Trạng thái)
         let footerHtml = '';
-        if (!isHistory) {
+        if (isCancelled) {
+            footerHtml = `
+                <div class="history-status" style="color:#c0392b;">
+                    <i class="fa fa-ban"></i> Đơn đã bị hủy
+                </div>`;
+        } else if (!isHistory) {
             // Tab Chờ: Hiện nút bấm
             footerHtml = `
                 <button class="btn-served" data-id="${order.id}">
@@ -166,15 +185,25 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
         }
 
         const card = document.createElement('div');
-        // Thêm class history-card nếu là lịch sử để đổi màu
-        card.className = isHistory ? 'service-card history-card' : 'service-card';
-        if(!isHistory) card.setAttribute('data-id', order.id);
+
+        // Class theo loại
+        if (isCancelled) {
+            card.className = 'service-card cancelled-card';
+        } else if (isHistory) {
+            card.className = 'service-card history-card';
+        } else {
+            card.className = 'service-card';
+            card.setAttribute('data-id', order.id);
+        }
         
+        const labelText = isCancelled 
+            ? 'DANH SÁCH MÓN TRONG ĐƠN HỦY:' 
+            : (isHistory ? 'DANH SÁCH MÓN ĐÃ GIAO:' : 'MÓN BẾP ĐÃ LÀM XONG CẦN GIAO:');
+
         card.innerHTML = `
             <div class="service-card__header">
                 <div>
                     <div class="card-title">Bàn: ${order.tenban}</div>
-                    
                     <span class="card-id">
                         Phòng: ${order.phong} &nbsp;|&nbsp; Đơn #${order.id}
                     </span>
@@ -182,7 +211,7 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
                 <span class="card-time">${order.tg.substring(0, 5)}</span>
             </div>
             <div class="service-card__body">
-                <p style="font-size:12px; color:#555;">${isHistory ? 'DANH SÁCH MÓN ĐÃ GIAO:' : 'MÓN BẾP ĐÃ LÀM XONG CẦN GIAO:'}</p>
+                <p style="font-size:12px; color:#555;">${labelText}</p>
                 <div class="item-list-container">
                     <ul class="item-list">${itemsHtml}</ul>
                 </div>
@@ -197,8 +226,9 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
 
     // Hàm Polling chính
     function fetchNewOrders() {
-        const waitContainer = document.getElementById('wait-orders-container');
-        const historyContainer = document.getElementById('history-orders-container');
+        const waitContainer      = document.getElementById('wait-orders-container');
+        const historyContainer   = document.getElementById('history-orders-container');
+        const cancelledContainer = document.getElementById('cancelled-orders-container');
         
         fetch(API_URL)
             .then(res => {
@@ -209,22 +239,23 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
                 if (!data) return;
 
                 // 1. Cập nhật số lượng Badge trên Tab
-                document.getElementById('badge-wait').innerText = data.count || 0;
-                document.getElementById('badge-history').innerText = data.history ? data.history.length : 0;
+                const waitCount      = data.count || 0;
+                const historyCount   = data.history ? data.history.length : 0;
+                const cancelledCount = (typeof data.count_cancelled !== 'undefined')
+                    ? data.count_cancelled
+                    : (data.cancelled ? data.cancelled.length : 0);
 
-                // 2. Phát âm thanh nếu có đơn chờ mới
-                if (data.count > lastOrderCount && data.count > 0) {
-                    playNotificationSound();
-                }
-                lastOrderCount = data.count;
+                document.getElementById('badge-wait').innerText      = waitCount;
+                document.getElementById('badge-history').innerText   = historyCount;
+                document.getElementById('badge-cancelled').innerText = cancelledCount;
 
-                // 3. Render Tab Chờ Giao
+                // 2. Render Tab Chờ Giao
                 waitContainer.innerHTML = '';
-                if (data.count > 0) {
+                if (waitCount > 0 && data.orders) {
                     data.orders.forEach(order => {
-                        waitContainer.appendChild(createOrderCard(order, false));
+                        waitContainer.appendChild(createOrderCard(order, false, false));
                     });
-                    document.title = `(${data.count}) Đơn Mới!`;
+                    document.title = `(${waitCount}) Đơn Mới!`;
                 } else {
                     waitContainer.innerHTML = `
                         <div style="grid-column: 1 / -1; text-align:center; padding:60px; background:#fff; border-radius:8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
@@ -233,11 +264,11 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
                     document.title = "Màn hình Phục Vụ";
                 }
 
-                // 4. Render Tab Lịch Sử
+                // 3. Render Tab Lịch Sử
                 historyContainer.innerHTML = '';
-                if (data.history && data.history.length > 0) {
+                if (data.history && historyCount > 0) {
                     data.history.forEach(order => {
-                        historyContainer.appendChild(createOrderCard(order, true));
+                        historyContainer.appendChild(createOrderCard(order, true, false));
                     });
                 } else {
                     historyContainer.innerHTML = `
@@ -245,12 +276,26 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
                             Chưa có đơn nào được giao trong hôm nay.
                         </div>`;
                 }
+
+                // 4. Render Tab Đơn Bị Hủy
+                cancelledContainer.innerHTML = '';
+                if (data.cancelled && data.cancelled.length > 0) {
+                    data.cancelled.forEach(order => {
+                        cancelledContainer.appendChild(createOrderCard(order, true, true));
+                    });
+                } else {
+                    cancelledContainer.innerHTML = `
+                        <div style="grid-column: 1 / -1; text-align:center; padding:60px; color:#999;">
+                            Chưa có đơn nào bị hủy trong hôm nay.
+                        </div>`;
+                }
             })
             .catch(err => {
                 console.error("Lỗi Polling:", err);
-                // Chỉ hiện lỗi ở tab đang xem
-                if(currentTab === 'wait') 
-                    waitContainer.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:red;">Lỗi kết nối hoặc tải dữ liệu!</div>`;
+                const errorHtml = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:red;">Lỗi kết nối hoặc tải dữ liệu!</div>`;
+                if (currentTab === 'wait')      document.getElementById('wait-orders-container').innerHTML = errorHtml;
+                if (currentTab === 'history')   document.getElementById('history-orders-container').innerHTML = errorHtml;
+                if (currentTab === 'cancelled') document.getElementById('cancelled-orders-container').innerHTML = errorHtml;
             });
     }
 

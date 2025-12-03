@@ -118,7 +118,7 @@ class Luong
         $nam = (int)$nam;
         // Join with nhansu and tb_admin to get details
         $query = "SELECT bl.*, ns.hoten, tk.level 
-                  FROM bang_luong bl
+                  FROM bangluong bl
                   JOIN nhansu ns ON bl.mans = ns.mans
                   JOIN tb_admin tk ON ns.id_admin = tk.id_admin
                   WHERE bl.thang = '$thang' AND bl.nam = '$nam'
@@ -141,7 +141,7 @@ class Luong
     {
         $id = (int)$id;
         $query = "SELECT bl.*, ns.hoten, tk.level 
-                  FROM bang_luong bl
+                  FROM bangluong bl
                   JOIN nhansu ns ON bl.mans = ns.mans
                   JOIN tb_admin tk ON ns.id_admin = tk.id_admin
                   WHERE bl.id_bangluong = '$id'";
@@ -154,19 +154,116 @@ class Luong
      * Note: This requires implementation of attendance calculation.
      * Returning empty array for now to prevent crash.
      */
+    /**
+     * Tính lương tháng (Preview)
+     */
     public function tinhLuongThang($thang, $nam)
     {
-        // TODO: Implement logic to calculate salary from chamcong table
-        return [];
+        $thang = (int)$thang;
+        $nam = (int)$nam;
+        $data = [];
+
+        // 1. Lấy danh sách nhân sự có mức lương
+        $query_ns = "SELECT ns.mans, ns.hoten, l.luong_ca, l.phu_cap, tk.level 
+                     FROM nhansu ns 
+                     JOIN luong l ON ns.mans = l.mans 
+                     LEFT JOIN tb_admin tk ON ns.id_admin = tk.id_admin
+                     WHERE ns.trangthai = 1";
+        $nhansu = $this->db->select($query_ns);
+
+        if ($nhansu) {
+            while ($ns = $nhansu->fetch_assoc()) {
+                $mans = $ns['mans'];
+                $luong_ca = (float)$ns['luong_ca'];
+                $phu_cap = (float)$ns['phu_cap'];
+
+                // 2. Đếm số ca làm việc đã hoàn thành trong tháng
+                // Chỉ tính các ca 'Đã hoàn thành' hoặc 'Đã check-in' (nếu muốn tính cả ca đang làm dở, nhưng thường là hoàn thành)
+                // Ở đây ta tính 'Đã hoàn thành' và 'Đã check-in' (coi như chấm công rồi)
+                $query_ca = "SELECT COUNT(*) as tong_ca, SUM(tien_phat) as tong_phat 
+                             FROM tbl_dangkylich 
+                             WHERE mans = '$mans' 
+                             AND MONTH(ngay) = '$thang' AND YEAR(ngay) = '$nam' 
+                             AND (trang_thai_cham_cong = 'Đã hoàn thành' OR trang_thai_cham_cong = 'Đã check-in')";
+
+                $result_ca = $this->db->select($query_ca);
+                $info_ca = $result_ca ? $result_ca->fetch_assoc() : ['tong_ca' => 0, 'tong_phat' => 0];
+
+                $tong_ca = (int)$info_ca['tong_ca'];
+                $tien_phat = (float)$info_ca['tong_phat'];
+
+                // 3. Tính lương
+                // Công thức: (Tổng ca * Lương ca) + Phụ cấp - Tiền phạt
+                $tong_luong_ca = $tong_ca * $luong_ca;
+                $thuc_lanh = $tong_luong_ca + $phu_cap - $tien_phat;
+
+                $data[] = [
+                    'mans' => $mans,
+                    'hoten' => $ns['hoten'],
+                    'level' => $ns['level'] ?? 0, // Default level 0 if null
+                    'so_ca' => $tong_ca, // Mapped for quanlyluong.php
+                    'tong_ca' => $tong_ca,
+                    'luong_cung' => $tong_luong_ca + $phu_cap, // Mapped for quanlyluong.php (Includes allowance)
+                    'luong_ca' => $luong_ca,
+                    'phu_cap' => $phu_cap,
+                    'tien_phat' => $tien_phat,
+                    'thuc_lanh' => $thuc_lanh
+                ];
+            }
+        }
+        return $data;
     }
 
     /**
      * Chốt bảng lương
      */
-    public function chotBangLuong($thang, $nam, $data)
+    /**
+     * Chốt bảng lương
+     */
+    public function chotBangLuong($thang, $nam)
     {
-        // TODO: Implement logic to save calculated salary to bang_luong table
-        return "<span class='error'>Chức năng chốt lương chưa được cài đặt.</span>";
+        $thang = (int)$thang;
+        $nam = (int)$nam;
+
+        // 1. Tính lương hiện tại
+        $bang_luong = $this->tinhLuongThang($thang, $nam);
+        if (empty($bang_luong)) return "<span class='error'>Không có dữ liệu để chốt lương.</span>";
+
+        $count = 0;
+        foreach ($bang_luong as $item) {
+            $mans = $item['mans'];
+            $tong_ca = $item['tong_ca'];
+            $muc_luong_ca = $item['luong_ca'];
+            $phu_cap = $item['phu_cap'];
+            $tien_phat = $item['tien_phat'];
+            $thuc_lanh = $item['thuc_lanh'];
+            $now = date('Y-m-d H:i:s');
+
+            // Kiểm tra xem đã chốt chưa
+            $check = "SELECT id_bangluong FROM bangluong WHERE mans = '$mans' AND thang = '$thang' AND nam = '$nam'";
+            $exists = $this->db->select($check);
+
+            if ($exists) {
+                // Update
+                $query = "UPDATE bangluong 
+                          SET tong_ca = '$tong_ca', 
+                              muc_luong_ca = '$muc_luong_ca', 
+                              phu_cap = '$phu_cap', 
+                              tien_phat = '$tien_phat', 
+                              thuc_lanh = '$thuc_lanh',
+                              ngay_tao = '$now'
+                          WHERE mans = '$mans' AND thang = '$thang' AND nam = '$nam' AND trang_thai = 0"; // Chỉ update nếu chưa thanh toán
+                $this->db->update($query);
+            } else {
+                // Insert
+                $query = "INSERT INTO bangluong (mans, thang, nam, tong_ca, muc_luong_ca, phu_cap, tien_phat, thuc_lanh, trang_thai, ngay_tao)
+                          VALUES ('$mans', '$thang', '$nam', '$tong_ca', '$muc_luong_ca', '$phu_cap', '$tien_phat', '$thuc_lanh', 0, '$now')";
+                $this->db->insert($query);
+            }
+            $count++;
+        }
+
+        return "<span class='success'>Đã chốt lương cho $count nhân viên.</span>";
     }
 
     /**
@@ -175,7 +272,7 @@ class Luong
     public function xacNhanThanhToan($payID)
     {
         $payID = (int)$payID;
-        $query = "UPDATE bang_luong SET trang_thai = 1, ngay_thanh_toan = NOW() WHERE id_bangluong = '$payID'";
+        $query = "UPDATE bangluong SET trang_thai = 1, ngay_thanh_toan = NOW() WHERE id_bangluong = '$payID'";
         return $this->db->update($query);
     }
 }

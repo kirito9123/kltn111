@@ -79,12 +79,18 @@ $waitingOrders = processOrderList($rsWaiting, $phucvu);
 $rsHistory = $phucvu->get_don_da_phuc_vu();
 $historyOrders = processOrderList($rsHistory, $phucvu);
 
+// 3. Lấy danh sách ĐƠN BỊ HỦY (Hôm nay)
+$rsCancelled = $phucvu->get_don_bi_huy_hom_nay();
+$cancelledOrders = processOrderList($rsCancelled, $phucvu);
+
 // Xóa bộ đệm và trả về JSON
 ob_clean();
 header('Content-Type: application/json');
 echo json_encode([
-    'count'   => count($waitingOrders), // Số lượng đơn chờ (để hiện badge đỏ)
-    'orders'  => $waitingOrders,        // Danh sách đơn chờ
-    'history' => $historyOrders         // Danh sách lịch sử
+    'count'            => count($waitingOrders),   // Số lượng đơn chờ (badge đỏ)
+    'orders'           => $waitingOrders,          // Danh sách đơn chờ
+    'history'          => $historyOrders,          // Danh sách lịch sử
+    'cancelled'        => $cancelledOrders,        // Danh sách đơn bị hủy
+    'count_cancelled'  => count($cancelledOrders), // (nếu FE cần hiển thị số lượng)
 ]);
 exit;

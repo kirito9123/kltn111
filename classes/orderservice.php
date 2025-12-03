@@ -195,10 +195,10 @@ class orderservice {
             $stmt->close();
 
             // 3) UPDATE trạng thái bàn -> bận (1) (+ tuỳ chọn gắn hopdong_id lên bảng ban)
-            if (!$mysqli->query("UPDATE ban SET trangthai = 1, hopdong_id = {$hopdong_id} WHERE id_ban IN ({$idlist})")) {
-                // nếu không có cột hopdong_id ở bảng ban, dùng câu này: UPDATE ban SET trangthai = 1 WHERE ...
-                // throw new Exception('Không thể cập nhật trạng thái bàn: ' . $mysqli->error);
-            }
+            // if (!$mysqli->query("UPDATE ban SET trangthai = 1, hopdong_id = {$hopdong_id} WHERE id_ban IN ({$idlist})")) {
+            //     // nếu không có cột hopdong_id ở bảng ban, dùng câu này: UPDATE ban SET trangthai = 1 WHERE ...
+            //     // throw new Exception('Không thể cập nhật trạng thái bàn: ' . $mysqli->error);
+            // }
 
             $mysqli->commit();
 

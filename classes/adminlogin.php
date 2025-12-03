@@ -4,16 +4,19 @@ include_once($filepath . '/../lib/session.php');
 include_once($filepath . '/../lib/database.php');
 include_once($filepath . '/../helpers/format.php');
 
-class adminlogin {
+class adminlogin
+{
     private $db;
     private $fm;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = new Database();
         $this->fm = new Format();
     }
 
-    public function login_admin($adminuser, $adminpass) {
+    public function login_admin($adminuser, $adminpass)
+    {
         $adminuser = $this->fm->validation($adminuser);
         $adminpass = $this->fm->validation($adminpass);
 
@@ -39,7 +42,7 @@ class adminlogin {
 
                 // Hiện alert rồi chuyển hướng
                 echo "<script>
-                        alert('Đăng nhập admin thành công!');
+                        alert('Đăng nhập thành công!');
                         window.location.href = 'index.php';
                     </script>";
                 exit();
@@ -51,7 +54,8 @@ class adminlogin {
     }
 
 
-    public function change_password($id, $oldPass, $newPass, $confirmPass) {
+    public function change_password($id, $oldPass, $newPass, $confirmPass)
+    {
         $oldPassHash = md5($oldPass);
         $newPassHash = md5($newPass);
         $confirmPassHash = md5($confirmPass);
@@ -82,8 +86,4 @@ class adminlogin {
             return '<script>alert("Mật khẩu cũ không đúng!");</script>';
         }
     }
-
-
-
 }
-?>

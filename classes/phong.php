@@ -3,16 +3,19 @@
 $filepath = realpath(dirname(__FILE__));
 include_once($filepath . '/../lib/database.php');
 
-class phong {
+class phong
+{
     private $db;
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = new Database();
     }
 
     /* ================= LOẠI PHÒNG / LOẠI BÀN ================= */
 
     // Lấy tất cả loại phòng
-    public function show_loaiphong() {
+    public function show_loaiphong()
+    {
         $sql = "SELECT maloaiphong, tenloaiphong
                 FROM loaiphong
                 ORDER BY tenloaiphong ASC";
@@ -20,7 +23,8 @@ class phong {
     }
 
     // Lấy tất cả loại bàn
-    public function show_loaiban() {
+    public function show_loaiban()
+    {
         $sql = "SELECT id_loaiban, tenloaiban
                 FROM loaiban
                 ORDER BY tenloaiban ASC";
@@ -30,7 +34,8 @@ class phong {
     /* ================= PHÒNG ================= */
 
     // Tất cả phòng + tên loại phòng
-    public function show_phong_all() {
+    public function show_phong_all()
+    {
         $sql = "SELECT p.id_phong, p.tenphong, p.maloaiphong, 
                        lp.tenloaiphong,
                        /* cột hình ảnh có thể không tồn tại ở DB của bạn, nên IFNULL để tránh lỗi */
@@ -42,7 +47,8 @@ class phong {
     }
 
     // Phòng theo loại phòng
-    public function show_phong_by_loai($maloaiphong) {
+    public function show_phong_by_loai($maloaiphong)
+    {
         $id = (int)$maloaiphong;
         $sql = "SELECT p.id_phong, p.tenphong, p.maloaiphong, 
                        IFNULL(p.hinhanh, '') AS hinhanh
@@ -53,7 +59,8 @@ class phong {
     }
 
     // Lấy 1 phòng
-    public function show_phong_by_id($id_phong) {
+    public function show_phong_by_id($id_phong)
+    {
         $id = (int)$id_phong;
         $sql = "SELECT p.id_phong, p.tenphong, p.maloaiphong, 
                        IFNULL(p.hinhanh, '') AS hinhanh,
@@ -65,7 +72,8 @@ class phong {
     }
 
     // (Tuỳ chọn) Đếm số bàn trong phòng
-    public function count_ban_in_phong($id_phong) {
+    public function count_ban_in_phong($id_phong)
+    {
         $id = (int)$id_phong;
         $sql = "SELECT COUNT(*) AS cnt FROM ban WHERE id_phong = {$id}";
         $rs = $this->db->select($sql);
@@ -80,7 +88,8 @@ class phong {
 
     // Danh sách bàn theo phòng + loại bàn (kèm trạng thái)
     // Quy ước: 0: trống, 1: đã đặt, 2: giữ chỗ
-    public function show_ban_by_phong_loaiban($id_phong, $id_loaiban) {
+    public function show_ban_by_phong_loaiban($id_phong, $id_loaiban)
+    {
         $pid = (int)$id_phong;
         $lid = (int)$id_loaiban;
         $sql = "SELECT id_ban, tenban, id_phong, id_loaiban, 
@@ -93,7 +102,8 @@ class phong {
 
     /* ================= KHÔNG DÙNG (XOÁ LỖI CŨ) ================= */
     // Hàm cũ dùng sai kết nối + sai bảng → bỏ/giữ lại theo ý bạn, mặc định trả mảng rỗng
-    public function getTenPhong() {
+    public function getTenPhong()
+    {
         return [];
     }
 }

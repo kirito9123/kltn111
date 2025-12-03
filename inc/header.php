@@ -308,21 +308,22 @@ header("Cache-Control: max-age=2592000");
                         </ul>
                     </li>
 
-                    <!-- <li class="nav-item"><a href="blog.php" class="nav-link">Tin tức</a></li> -->
-
+                    <li class="nav-item"><a href="trangbaiviet.php" class="nav-link">TIN TỨC</a></li>
                     <?php if (!empty(Session::get('name'))) { ?>
-                        <li class="nav-item"><a href="chat.php" class="nav-link">Chat với admin</a></li>
+                        <li class="nav-item"><a href="chat.php" class="nav-link">NHẮN TIN TRỰC TIẾP</a></li>
                     <?php } ?>
 
-                    <li class="nav-item cta">
+                    <!-- <li class="nav-item cta">
                         <a href="datban.php" class="nav-link">
-                            <img src="images/shopping-cart.jpg" height="28" width="38" alt="Cart">
+                            <img src="images/shopping-cart2.jpg" height="28" width="38" alt="Cart">
                             <?php if ($ct->check()) {
                                 echo $fm->formatMoney(Session::get("sum"));
                             } ?>
                         </a>
+                    </li> -->
+                    <li class="nav-item cta">
+                        <a class="nav-link" href="datban.php">Đặt bàn</a>
                     </li>
-
                     <li class="nav-item cta">
                         <a class="nav-link" href="https://www.facebook.com/nguyen.minh.tri.114121/">Liên hệ</a>
                     </li>

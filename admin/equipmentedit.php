@@ -4,12 +4,13 @@
 <?php include '../classes/trangthietbi.php'; ?>
 <style>
     /* 1. Tổng quan và Khung chính */
-    * { 
-        box-sizing: border-box; 
+    * {
+        box-sizing: border-box;
     }
-    
+
     .form-wrapper {
-        max-width: 750px; /* Tăng chiều rộng một chút */
+        max-width: 750px;
+        /* Tăng chiều rộng một chút */
         margin: 40px auto;
         padding: 30px 40px;
         background-color: #ffffff;
@@ -61,7 +62,7 @@
         box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
         background-color: #fff;
     }
-    
+
     .form-group textarea {
         min-height: 150px;
         resize: vertical;
@@ -70,23 +71,25 @@
     /* 4. Hiển thị Ảnh hiện tại */
     .image-preview {
         display: block;
-        max-width: 180px; /* Ảnh lớn hơn để dễ xem */
+        max-width: 180px;
+        /* Ảnh lớn hơn để dễ xem */
         height: auto;
         border: 3px solid #ecf0f1;
         border-radius: 8px;
         margin: 15px 0 20px 0;
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
-    
+
     /* 5. Nút Hành động */
     .form-actions {
         text-align: center;
         margin-top: 30px;
     }
-    
+
     .form-actions input[type="submit"] {
         padding: 14px 35px;
-        background-color: #f39c12; /* Màu cam nổi bật cho Cập nhật */
+        background-color: #f39c12;
+        /* Màu cam nổi bật cho Cập nhật */
         color: white;
         border: none;
         border-radius: 8px;
@@ -100,9 +103,10 @@
         background-color: #e67e22;
         transform: translateY(-2px);
     }
-    
+
     /* 6. Styling cho thông báo */
-    .error, .success {
+    .error,
+    .success {
         display: block;
         padding: 12px;
         margin-bottom: 20px;
@@ -110,11 +114,13 @@
         font-weight: 600;
         text-align: center;
     }
+
     .error {
         background-color: #f8d7da;
         color: #721c24;
         border: 1px solid #f5c6cb;
     }
+
     .success {
         background-color: #d4edda;
         color: #155724;
@@ -146,17 +152,17 @@ $get_thietbi = $thietbi->getthietbibyid($id);
     <div class="box round first grid">
         <div class="form-wrapper">
             <h2>Cập Nhật Trang Thiết Bị</h2>
-            
+
             <?php
             if (isset($updateThietBi)) {
                 echo $updateThietBi;
             }
-            
+
             if ($get_thietbi) {
                 while ($result_thietbi = $get_thietbi->fetch_assoc()) {
             ?>
                     <form action="" method="post" enctype="multipart/form-data">
-                        
+
                         <div class="form-group">
                             <label for="tenthietbi">Tên Thiết Bị</label>
                             <input type="text" name="tenthietbi" value="<?php echo htmlspecialchars($result_thietbi['tenthietbi']); ?>" required />
@@ -178,7 +184,7 @@ $get_thietbi = $thietbi->getthietbibyid($id);
                                 ?>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="tinhtrang">Trạng thái Thiết Bị</label>
                             <select name="tinhtrang" required>
@@ -188,7 +194,7 @@ $get_thietbi = $thietbi->getthietbibyid($id);
                                 <option value="3" <?php if ($result_thietbi['tinhtrang_trangthietbi'] == 3) echo 'selected'; ?>>3. Cũ</option>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="ghichu">Ghi chú</label>
                             <textarea name="ghichu" class="tinymce"><?php echo htmlspecialchars($result_thietbi['ghichu']); ?></textarea>
@@ -204,7 +210,7 @@ $get_thietbi = $thietbi->getthietbibyid($id);
                             <label for="image">Thay đổi hình ảnh (nếu muốn)</label>
                             <input type="file" name="image" />
                         </div>
-                        
+
                         <div class="form-actions">
                             <input type="submit" name="submit" value="Cập nhật thiết bị" />
                         </div>

@@ -11,6 +11,12 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     $action = $_GET['action'];
     $status = ($action == 'approve') ? 1 : 2;
 
+    // BẢO MẬT: Chỉ Admin (0) mới được phép Duyệt (status=1)
+    if ($status == 1 && Session::get('adminlevel') != 0) {
+        echo "<script>alert('Bạn không có quyền DUYỆT đơn nghỉ!'); window.location='xinnghi_list.php';</script>";
+        exit;
+    }
+
     if ($lich->process_leave_request($id_xinnghi, $status)) {
         echo "<script>alert('Xử lý thành công!'); window.location='xinnghi_list.php';</script>";
     } else {
@@ -65,7 +71,11 @@ $requests = $lich->get_leave_requests();
 
                             echo "<td>";
                             if ($row['trang_thai'] == 0) {
-                                echo "<a href='?action=approve&id=" . $row['id_xinnghi'] . "' onclick=\"return confirm('Bạn có chắc muốn DUYỆT?');\">[Duyệt]</a> ";
+                                // Chỉ Admin (0) mới thấy nút Duyệt
+                                if (Session::get('adminlevel') == 0) {
+                                    echo "<a href='?action=approve&id=" . $row['id_xinnghi'] . "' onclick=\"return confirm('Bạn có chắc muốn DUYỆT?');\">[Duyệt]</a> ";
+                                }
+                                // Ai vào được trang này cũng thấy nút Từ chối (Hủy duyệt)
                                 echo "<a href='?action=reject&id=" . $row['id_xinnghi'] . "' onclick=\"return confirm('Bạn có chắc muốn TỪ CHỐI?');\">[Từ chối]</a>";
                             } else {
                                 echo "Đã xử lý";

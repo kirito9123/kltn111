@@ -84,4 +84,23 @@ class ThongKe
                   ORDER BY ngay_chi DESC";
         return $this->db->select($query);
     }
+
+    // 7. Lấy Tổng Chênh Lệch Tiền Mặt (Từ chốt ca)
+    public function getChenhLech($thang, $nam)
+    {
+        $query = "SELECT SUM(chenh_lech) as total FROM tbl_chotca 
+                  WHERE MONTH(ngay_chot) = '$thang' AND YEAR(ngay_chot) = '$nam'";
+        $result = $this->db->select($query);
+        return $result ? ($result->fetch_assoc()['total'] ?? 0) : 0;
+    }
+
+    // 8. Lấy Tổng Lương Thực Tế (Từ bảng lương đã chốt)
+    public function getTongLuong($thang, $nam)
+    {
+        // Lấy tổng thực lãnh từ bảng lương đã chốt (trang_thai có thể là 0 hoặc 1, miễn là đã chốt)
+        $query = "SELECT SUM(thuc_lanh) as total FROM bangluong 
+                  WHERE thang = '$thang' AND nam = '$nam'";
+        $result = $this->db->select($query);
+        return $result ? ($result->fetch_assoc()['total'] ?? 0) : 0;
+    }
 }

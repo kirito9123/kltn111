@@ -19,32 +19,55 @@ class nhanvienbep
     // ============================================================
     public function get_danh_sach_don($filter = 'cho_che_bien', $date = '')
     {
-        $query = "SELECT * FROM hopdong WHERE 1=1 ";
+        $today = date('Y-m-d');
+        // Luôn loại trừ đơn hàng có status = 2 (Đã thanh toán xong và đã hủy mềm ở quầy) 
+        // và chỉ lấy các đơn có payment_status khác 'completed'
+        $query = "SELECT * FROM hopdong WHERE status != 2 ";
 
         switch ($filter) {
             case 'cho_che_bien':
-                $today = date('Y-m-d');
-                $query .= " AND status = 0 AND dates = '$today' ";
+                // Chỉ lấy đơn trong ngày hôm nay, đang chờ làm (status=0) VÀ chưa bị hủy
+                $query .= " AND dates = '$today' AND status = 0 AND payment_status != 'cancelled' ";
+                $query .= " ORDER BY tg ASC";
+                break;
+
+            case 'dat_truoc':
+                // Lấy các đơn có ngày đặt > ngày hôm nay và chưa bị hủy
+                $query .= " AND dates > '$today' AND payment_status != 'cancelled' ";
+                $query .= " ORDER BY dates ASC, tg ASC";
                 break;
 
             case 'hom_nay':
-                $today = date('Y-m-d');
+                // Lấy tất cả đơn trong ngày hôm nay (kể cả đã xong, đang chờ, đã hủy)
                 $query .= " AND dates = '$today' ";
+                $query .= " ORDER BY created_at DESC";
+                break;
+                
+            case 'don_huy':
+                // Lấy tất cả đơn đã hủy để bếp biết cần ngưng làm
+                $query .= " AND payment_status = 'cancelled' ";
+                $query .= " ORDER BY created_at DESC";
                 break;
 
             case 'lich_su':
+                // Lấy tất cả đơn theo ngày cụ thể (cho chức năng lọc ngày)
                 if (!empty($date)) {
                     $date = mysqli_real_escape_string($this->db->link, $date);
                     $query .= " AND dates = '$date' ";
                 }
+                $query .= " ORDER BY dates ASC, tg ASC";
                 break;
                 
-            case 'tat_ca_chua_xong':
+            case 'tat_ca_chua_xong': // Giữ nguyên, nhưng không dùng trong màn hình bếp này
                 $query .= " AND status = 0 ";
+                $query .= " ORDER BY created_at DESC";
                 break;
         }
-
-        $query .= " ORDER BY dates ASC, tg ASC";
+        
+        // Nếu không có ORDER BY trong switch case, áp dụng default
+        if (strpos($query, 'ORDER BY') === false) {
+             $query .= " ORDER BY created_at DESC";
+        }
 
         return $this->db->select($query);
     }

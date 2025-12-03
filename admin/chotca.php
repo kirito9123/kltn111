@@ -102,26 +102,75 @@ if ($res_lock && $res_lock !== false && $res_lock->num_rows > 0) {
     $saved_data = $res_lock->fetch_assoc();
 }
 
-// Tính tiền
-$query_total = "SELECT SUM(thanhtien) as total FROM hopdong WHERE DATE(created_at) = '$today' AND payment_status = 'completed'";
+// ====================================================================
+// START: LOGIC TÍNH DOANH THU VÀ CHỈ SỐ MỚI (ĐÃ FIX ĐƠN HỦY TẠI QUẦY)
+// ====================================================================
+
+// TÍNH TỔNG DOANH THU (thanhtien cho completed, so_tien cho cancelled/deposit)
+$query_total = "SELECT 
+                    SUM(CASE 
+                        WHEN payment_status = 'completed' THEN thanhtien
+                        WHEN payment_status IN ('deposit') THEN so_tien 
+                        -- CHỈ TÍNH TIỀN CỌC ĐÃ THU TỪ ĐƠN HỦY KHÔNG PHẢI TẠI QUÁN
+                        WHEN payment_status = 'cancelled' AND (payment_type IS NULL OR payment_type != 'tại quán') AND so_tien > 0 THEN so_tien 
+                        ELSE 0 
+                    END) as total 
+                FROM hopdong 
+                WHERE DATE(created_at) = '$today'";
 $res_total = $db->select($query_total);
 $doanh_thu_tong = ($res_total) ? ($res_total->fetch_assoc()['total'] ?? 0) : 0;
 
-$query_ck = "SELECT SUM(thanhtien) as ck FROM hopdong WHERE DATE(created_at) = '$today' AND payment_status = 'completed' AND payment_method = 'vnpay'";
+// TÍNH TIỀN CHUYỂN KHOẢN (vnpay)
+$query_ck = "SELECT 
+                SUM(CASE 
+                    WHEN payment_status = 'completed' AND payment_method = 'vnpay' THEN thanhtien
+                    WHEN payment_status IN ('deposit') AND payment_method = 'vnpay' THEN so_tien
+                    -- CHỈ TÍNH TIỀN CỌC ĐÃ THU TỪ ĐƠN HỦY KHÔNG PHẢI TẠI QUẦY (VNPAY)
+                    WHEN payment_status = 'cancelled' AND (payment_type IS NULL OR payment_type != 'tại quán') AND payment_method = 'vnpay' AND so_tien > 0 THEN so_tien
+                    ELSE 0 
+                END) as ck 
+             FROM hopdong 
+             WHERE DATE(created_at) = '$today'";
 $res_ck = $db->select($query_ck);
 $tien_chuyen_khoan = ($res_ck) ? ($res_ck->fetch_assoc()['ck'] ?? 0) : 0;
+
+
+// TÍNH TỔNG TIỀN CỌC ĐÃ THU ĐƯỢC GIỮ LẠI (từ đơn deposit và cancelled không phải tại quầy)
+$query_deposit_total = "SELECT SUM(so_tien) as deposit_sum FROM hopdong 
+                        WHERE DATE(created_at) = '$today' 
+                        AND payment_status IN ('deposit')
+                        -- THÊM ĐIỀU KIỆN TIỀN CỌC ĐÃ THU TỪ ĐƠN HỦY KHÔNG PHẢI TẠI QUẦY
+                        OR (DATE(created_at) = '$today' AND payment_status = 'cancelled' AND (payment_type IS NULL OR payment_type != 'tại quán') AND so_tien > 0)";
+$res_deposit = $db->select($query_deposit_total);
+$tien_coc_da_thu = ($res_deposit) ? ($res_deposit->fetch_assoc()['deposit_sum'] ?? 0) : 0;
+
+// ĐẾM SỐ LƯỢNG ĐƠN ĐÃ HỦY (Tổng số đơn hủy trong ngày, bao gồm cả hủy tại quầy)
+$query_cancelled_count = "SELECT COUNT(id) as cancelled_count FROM hopdong 
+                          WHERE DATE(created_at) = '$today' 
+                          AND payment_status = 'cancelled'";
+$res_cancelled = $db->select($query_cancelled_count);
+$so_don_huy = ($res_cancelled) ? ($res_cancelled->fetch_assoc()['cancelled_count'] ?? 0) : 0;
+
 
 $tien_mat_he_thong = $doanh_thu_tong - $tien_chuyen_khoan;
 $val_real_cash = $is_locked ? $saved_data['tien_mat_thuc_te'] : '';
 
 // Data khác
-$query_orders = "SELECT id, created_at, thanhtien, payment_method FROM hopdong WHERE DATE(created_at) = '$today' AND payment_status = 'completed' ORDER BY id DESC";
+// LẤY CHI TIẾT ĐƠN HÀNG (bao gồm completed, deposit, cancelled)
+$query_orders = "SELECT id, created_at, thanhtien, so_tien, payment_method, payment_status, payment_type 
+                 FROM hopdong 
+                 WHERE DATE(created_at) = '$today' AND payment_status IN ('completed', 'deposit', 'cancelled') 
+                 ORDER BY id DESC";
 $list_orders = $db->select($query_orders);
 
 $query_mon = "SELECT m.name_mon, SUM(c.soluong) as sl_ban, SUM(c.thanhtien) as tong_tien FROM hopdong_chitiet c JOIN hopdong h ON h.id = c.hopdong_id JOIN monan m ON m.id_mon = c.monan_id WHERE DATE(h.created_at) = '$today' AND h.payment_status = 'completed' GROUP BY m.id_mon ORDER BY sl_ban DESC"; 
 $list_mon = $db->select($query_mon);
 $data_mon = [];
 if ($list_mon) { while($row = $list_mon->fetch_assoc()) $data_mon[] = $row; }
+
+// ====================================================================
+// END: LOGIC TÍNH DOANH THU VÀ CHỈ SỐ MỚI
+// ====================================================================
 ?>
 
 <style>
@@ -164,6 +213,15 @@ if ($list_mon) { while($row = $list_mon->fetch_assoc()) $data_mon[] = $row; }
                 <div class="stat-box bg-info" onclick="document.getElementById('orderModal').style.display='flex'">
                     <div style="position: absolute; top: 10px; right: 10px; opacity: 0.5;"><i class="fa fa-search-plus"></i> Chi tiết</div>
                     <div class="money-row"><span>Tổng doanh thu:</span><strong><?php echo number_format($doanh_thu_tong); ?></strong></div>
+                    
+                    <div class="money-row">
+                        <span style="font-style: italic;">+ Tiền cọc đã thu (Giữ lại):</span>
+                        <strong style="font-style: italic;"><?php echo number_format($tien_coc_da_thu); ?></strong>
+                    </div>
+                    <div class="money-row">
+                        <span style="font-style: italic;">+ Số đơn đã hủy (Tổng):</span>
+                        <strong style="font-style: italic;"><?php echo number_format($so_don_huy); ?></strong>
+                    </div>
                     <div class="money-row"><span>- VNPay (CK):</span><strong><?php echo number_format($tien_chuyen_khoan); ?></strong></div>
                     <div style="margin-top: 15px;">
                         <span style="opacity: 0.8; font-size: 13px; text-transform: uppercase;">Tiền mặt hệ thống</span>
@@ -172,9 +230,9 @@ if ($list_mon) { while($row = $list_mon->fetch_assoc()) $data_mon[] = $row; }
                 </div>
                 <div class="stat-box bg-input">
                     <label style="font-size: 13px; color: #636e72; font-weight: bold; margin-bottom: 5px; display: block;">TIỀN TRONG KÉT THỰC TẾ:</label>
-                    <input type="text" id="real-cash" class="money-input" placeholder="Nhập số tiền..." onkeyup="checkDiff()" autocomplete="off"
-                           value="<?php echo ($val_real_cash !== '') ? number_format($val_real_cash) : ''; ?>"
-                           <?php echo $is_locked ? 'disabled' : ''; ?> >
+                    <input type="text" id="real-cash" class="money-input" placeholder="Nhập số tiền..." onkeyup="checkDiff(this)" autocomplete="off"
+                            value="<?php echo ($val_real_cash !== '') ? number_format($val_real_cash) : ''; ?>"
+                            <?php echo $is_locked ? 'disabled' : ''; ?> >
                     <div id="diff-res" class="diff-badge">...</div>
                 </div>
             </div>
@@ -251,13 +309,47 @@ if ($list_mon) { while($row = $list_mon->fetch_assoc()) $data_mon[] = $row; }
         <div class="modal-header"><h3 style="margin:0;">Chi tiết đơn hôm nay</h3><span style="cursor:pointer" onclick="document.getElementById('orderModal').style.display='none'">&times;</span></div>
         <div class="modal-body">
             <table class="custom-table" style="margin:0;">
-                <thead><tr><th>ID</th><th>Giờ</th><th>PTTT</th><th style="text-align: right;">Tiền</th></tr></thead>
+                <thead><tr><th>ID</th><th>Giờ</th><th>Trạng thái & PTTT</th><th style="text-align: right;">Tiền tính DT</th></tr></thead>
                 <tbody>
                     <?php 
                     if($list_orders){
                         while($o = $list_orders->fetch_assoc()){
                             $method = ($o['payment_method'] == 'vnpay') ? '<b style="color:#0984e3">VNPay</b>' : '<b style="color:#00b894">Tiền mặt</b>';
-                            echo '<tr><td>#'.$o['id'].'</td><td>'.date('H:i', strtotime($o['created_at'])).'</td><td>'.$method.'</td><td align="right">'.number_format($o['thanhtien']).'</td></tr>';
+                            
+                            $money = 0;
+                            $status_color = '#333';
+                            $money_note = '';
+
+                            if ($o['payment_status'] == 'completed') {
+                                $money = $o['thanhtien']; // Đơn hoàn tất thì lấy tổng tiền
+                                $status_color = '#28a745';
+                                $money_note = 'Tổng tiền';
+                            } elseif ($o['payment_status'] == 'deposit') {
+                                $money = $o['so_tien']; // Đơn đang cọc thì lấy tiền cọc
+                                $status_color = '#0c5460';
+                                $money_note = 'Tiền cọc';
+                            } elseif ($o['payment_status'] == 'cancelled') {
+                                // Logic: Hủy nhưng có tiền cọc (không phải tại quán) mới tính
+                                if (($o['payment_type'] === NULL || $o['payment_type'] !== 'tại quán') && $o['so_tien'] > 0) {
+                                    $money = $o['so_tien'];
+                                    $money_note = 'Tiền cọc giữ lại';
+                                    $status_color = '#dc3545';
+                                } else {
+                                    $money = 0;
+                                    $money_note = 'Không tính';
+                                    $status_color = '#6c757d';
+                                }
+                            }
+                            
+                            $status_lbl = '<small style="color:'.$status_color.'; font-weight:bold;">'.strtoupper($o['payment_status']).'</small>';
+                            $money_label = $money > 0 ? $money_note : '';
+                            
+                            echo '<tr>
+                                    <td>#'.$o['id'].'</td>
+                                    <td>'.date('H:i', strtotime($o['created_at'])).'</td>
+                                    <td>'.$status_lbl.'<br><small style="color:gray;">'.$money_label.'</small><br>'.$method.'</td>
+                                    <td align="right">'.number_format($money).'</td>
+                                  </tr>';
                         }
                     } else echo '<tr><td colspan="4" align="center">Chưa có đơn.</td></tr>';
                     ?>
@@ -271,10 +363,22 @@ if ($list_mon) { while($row = $list_mon->fetch_assoc()) $data_mon[] = $row; }
     function formatMoney(num) {
         return new Intl.NumberFormat('en-US').format(num);
     }
-    document.addEventListener("DOMContentLoaded", function() { checkDiff(); });
+    // Gán sự kiện cho input và gọi hàm kiểm tra khi DOM load
+    document.addEventListener("DOMContentLoaded", function() { 
+        checkDiff(); 
+        document.getElementById('real-cash').addEventListener('keyup', function(e) {
+            // Loại bỏ ký tự không phải số (trừ dấu chấm/phẩy nếu cần, nhưng thường dùng \D/g cho tiện)
+            let rawValue = this.value.replace(/\D/g, ''); 
+            this.value = formatMoney(rawValue); // Định dạng lại tiền
+            checkDiff();
+        });
+    });
 
     function checkDiff() {
+        // Lấy tiền mặt hệ thống (lọc bỏ dấu phẩy)
         let sysCash = parseFloat(document.getElementById('sys-cash').innerText.replace(/,/g, '')) || 0;
+        
+        // Lấy giá trị input thực tế (chỉ giữ lại số)
         let inputVal = document.getElementById('real-cash').value.replace(/\D/g, ''); 
         let realCash = parseFloat(inputVal) || 0;
         let diff = realCash - sysCash;
@@ -284,7 +388,9 @@ if ($list_mon) { while($row = $list_mon->fetch_assoc()) $data_mon[] = $row; }
             diffBadge.innerHTML = "Vui lòng nhập tiền";
             diffBadge.style.background = "#f1f2f6"; diffBadge.style.color = "#333"; return;
         }
+        
         let diffText = formatMoney(Math.abs(diff));
+
         if (diff === 0) {
             diffBadge.innerHTML = '<i class="fa fa-check"></i> Đủ tiền (Khớp)'; diffBadge.style.background = "#d4edda"; diffBadge.style.color = "#155724";
         } else if (diff > 0) {
@@ -298,12 +404,13 @@ if ($list_mon) { while($row = $list_mon->fetch_assoc()) $data_mon[] = $row; }
         let sysCash = parseFloat(document.getElementById('sys-cash').innerText.replace(/,/g, '')) || 0;
         let inputVal = document.getElementById('real-cash').value.replace(/\D/g, '');
         if (inputVal === '') { alert("Vui lòng nhập số tiền thực tế!"); document.getElementById('real-cash').focus(); return; }
+        
         let realCash = parseFloat(inputVal);
         let diff = realCash - sysCash;
 
         let msg = "BẠN CÓ CHẮC CHẮN MUỐN CHỐT CA?\n--------------------------------\n";
-        msg += "- Tiền hệ thống: " + formatMoney(sysCash) + " đ\n";
-        msg += "- Tiền thực tế: " + formatMoney(realCash) + " đ\n";
+        msg += "- Tiền mặt hệ thống: " + formatMoney(sysCash) + " đ\n";
+        msg += "- Tiền mặt thực tế: " + formatMoney(realCash) + " đ\n";
         if(diff != 0) msg += "\n⚠️ CẢNH BÁO: Đang lệch " + formatMoney(Math.abs(diff)) + " đ";
 
         if(confirm(msg)) {

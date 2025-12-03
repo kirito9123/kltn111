@@ -95,14 +95,18 @@ function parentOpenClass($names, $current_page)
             <li class="has-sub <?php echo parentOpenClass($sub_orders, $current_page); ?>">
                 <a class="menu-title">
                     <span class="icon">🧾</span>
-                    Quản Lý đơn hàng
+                    Quản Lý đơn bàn
                     <span class="arrow"></span>
                 </a>
                 <ul class="submenu" <?php echo isSubmenuOpen($sub_orders, $current_page); ?>>
                     <?php if (hasPerm('orders.manage')): ?>
                     <?php endif; ?>
-                    <li><a href="admin_orders.php" class="<?php echo activeClass('admin_orders.php', $current_page) ?>">Xem danh sách đơn</a></li>
-                    <li><a href="kitchen_close.php" class="<?php echo activeClass('kitchen_close.php', $current_page) ?>">Chốt ca Bếp</a></li>
+                    <?php if ($role === 0 || $role === 2 || $role === 3): ?>
+                        <li><a href="admin_orders.php" class="<?php echo activeClass('admin_orders.php', $current_page) ?>">Xem danh sách đơn</a></li>
+                    <?php endif; ?>
+                    <?php if ($role === 0 || $role === 3): ?>
+                        <li><a href="kitchen_close.php" class="<?php echo activeClass('kitchen_close.php', $current_page) ?>">Chốt ca Bếp</a></li>
+                    <?php endif; ?>
                     <?php if (hasPerm('kitchen.notify')): ?>
                         <li><a href="nhanvienphucvu_order.php" class="<?php echo activeClass('nhanvienphucvu_order.php', $current_page) ?>">Thông báo món xong</a></li>
                     <?php endif; ?>
@@ -222,7 +226,7 @@ function parentOpenClass($names, $current_page)
         <?php endif; ?>
 
         <?php
-        if (hasPerm('reports.view') || Session::get('user_level') == 0):
+        if ($role === 0):
             $sub_report = ['baocao_quanly.php'];
         ?>
             <li class="has-sub <?php echo parentOpenClass($sub_report, $current_page); ?>">
@@ -252,20 +256,19 @@ function parentOpenClass($names, $current_page)
         <?php endif; ?>
 
         <?php if ($role === 0 || $role === 1):
-            $sub_acc = ['quanlyluong.php', 'quanlythuchi.php', 'in_baocaothuchi.php'];
+            $sub_acc = ['quanlyluong.php', 'quanlythuchi.php'];
         ?>
             <li class="has-sub <?php echo parentOpenClass($sub_acc, $current_page); ?>">
                 <a class="menu-title"><span class="icon">💰</span> Tài chính & Lương <span class="arrow"></span></a>
                 <ul class="submenu" <?php echo isSubmenuOpen($sub_acc, $current_page); ?>>
                     <li><a href="quanlyluong.php" class="<?php echo activeClass('quanlyluong.php', $current_page) ?>">Quản lý Lương</a></li>
                     <li><a href="quanlythuchi.php" class="<?php echo activeClass('quanlythuchi.php', $current_page) ?>">Quản lý Thu Chi</a></li>
-                    <li><a href="in_baocaothuchi.php" class="<?php echo activeClass('in_baocaothuchi.php', $current_page) ?>">In Báo Cáo Thu Chi</a></li>
                 </ul>
             </li>
         <?php endif; ?>
 
         <?php if ($role === 0 || $role === 1):
-            $sub_hr = ['themnhansu.php', 'quanlynhansu_list.php', 'quanlynhansu_hidden_list.php', 'chamcong.php', 'theodoi_chamcong.php', 'xinnghi_list.php', 'xinnghi_add.php', 'lichdangkylist.php', 'lichdangky_add.php'];
+            $sub_hr = ['themnhansu.php', 'quanlynhansu_list.php', 'quanlynhansu_hidden_list.php', 'chamcong.php', 'theodoi_chamcong.php', 'lichdangkylist.php', 'lichdangky_add.php'];
         ?>
             <li class="has-sub <?php echo parentOpenClass($sub_hr, $current_page); ?>">
                 <a class="menu-title"><span class="icon">👔</span> Quản Lý Nhân Sự <span class="arrow"></span></a>
@@ -279,15 +282,24 @@ function parentOpenClass($names, $current_page)
                     <li><a href="chamcong.php" class="<?php echo activeClass('chamcong.php', $current_page) ?>">Chấm công</a></li>
                     <li><a href="theodoi_chamcong.php" class="<?php echo activeClass('theodoi_chamcong.php', $current_page) ?>">Theo dõi chấm công</a></li>
 
-                    <li><a href="xinnghi_list.php" class="<?php echo activeClass('xinnghi_list.php', $current_page) ?>">DS Xin nghỉ</a></li>
-                    <li><a href="xinnghi_add.php" class="<?php echo activeClass('xinnghi_add.php', $current_page) ?>">Đăng ký nghỉ</a></li>
-
                     <li><a href="lichdangkylist.php" class="<?php echo activeClass('lichdangkylist.php', $current_page) ?>">DS Lịch đăng ký</a></li>
                     <li><a href="lichdangky_add.php" class="<?php echo activeClass('lichdangky_add.php', $current_page) ?>">Đăng ký lịch</a></li>
 
                     <?php if ($role === 0): ?>
                         <li><a href="http://localhost:5000/them_khuon_mat" target="_blank">Thêm khuôn mặt</a></li>
                     <?php endif; ?>
+                </ul>
+            </li>
+        <?php endif; ?>
+
+        <?php if ($role === 0 || $role === 1):
+            $sub_hr = ['xinnghi_list.php', 'xinnghi_add.php'];
+        ?>
+            <li class="has-sub <?php echo parentOpenClass($sub_hr, $current_page); ?>">
+                <a class="menu-title"><span class="icon">👔</span> Quản Lý Xin Nghỉ Phép <span class="arrow"></span></a>
+                <ul class="submenu" <?php echo isSubmenuOpen($sub_hr, $current_page); ?>>
+                    <li><a href="xinnghi_list.php" class="<?php echo activeClass('xinnghi_list.php', $current_page) ?>">DS Xin nghỉ</a></li>
+                    <li><a href="xinnghi_add.php" class="<?php echo activeClass('xinnghi_add.php', $current_page) ?>">Đăng ký nghỉ</a></li>
                 </ul>
             </li>
         <?php endif; ?>
@@ -302,12 +314,41 @@ function parentOpenClass($names, $current_page)
                     <li><a href="baivietlist.php" class="<?php echo activeClass(['baivietlist.php', 'baivietedit.php'], $current_page) ?>">Danh sách Bài Viết</a></li>
                 </ul>
             </li>
+            </li>
+        <?php endif; ?>
+
+        <?php if ($role === 2 || $role === 3 || $role === 4): ?>
+            <li>
+                <a class="menu-title single-link <?php echo activeClass('lichdangky_add.php', $current_page) ?>" href="lichdangky_add.php">
+                    <span class="icon">📅</span> Đăng ký lịch làm việc
+                </a>
+            </li>
+        <?php endif; ?>
+
+        <?php if ($role === 2 || $role === 3 || $role === 4): ?>
+            <li>
+                <a class="menu-title single-link <?php echo activeClass('lichdangkylist.php', $current_page) ?>" href="lichdangkylist.php">
+                    <span class="icon">📅</span> Xem lịch làm việc
+                </a>
+            </li>
+        <?php endif; ?>
+
+        <?php if ($role === 2 || $role === 3 || $role === 4): ?>
+            <li>
+                <a class="menu-title single-link <?php echo activeClass('chamcong.php', $current_page) ?>" href="chamcong.php">
+                    <span class="icon">📅</span> Chấm công
+                </a>
+            </li>
+        <?php endif; ?>
+
+        <?php if ($role === 0 || $role === 2): ?>
             <li>
                 <a class="menu-title single-link <?php echo activeClass('admin_chat.php', $current_page) ?>" href="admin_chat.php">
                     <span class="icon">💬</span> Chat với KH
                 </a>
             </li>
         <?php endif; ?>
+
 
     </ul>
 </div>

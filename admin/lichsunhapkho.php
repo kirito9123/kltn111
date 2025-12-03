@@ -192,9 +192,10 @@ $list_phieu = $nl->get_all_phieu_nhap($tungay, $denngay);
                                     <button class="btn-action btn-view" onclick="toggleDetail(this, <?php echo $row['id_phieu']; ?>)">
                                         <i class="fa fa-eye"></i> Xem
                                     </button>
-                                    <a href="in_phieunhap.php?id=<?php echo $row['id_phieu']; ?>" target="_blank" class="btn-action btn-print">
+                                    <!-- ĐỔI: từ <a target="_blank"> sang button để in qua iframe -->
+                                    <button type="button" class="btn-action btn-print" data-id="<?php echo $row['id_phieu']; ?>">
                                         <i class="fa fa-print"></i> In
-                                    </a>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -223,7 +224,29 @@ $list_phieu = $nl->get_all_phieu_nhap($tungay, $denngay);
     $(document).ready(function() {
         table = $('#historyTable').DataTable({
             "order": [], 
-            "language": { "search": "Tìm nhanh:", "paginate": { "next": "Sau", "previous": "Trước" }, "info": "Hiện _START_ - _END_ trong _TOTAL_ phiếu" }
+            "language": { 
+                "search": "Tìm nhanh:", 
+                "paginate": { "next": "Sau", "previous": "Trước" }, 
+                "info": "Hiện _START_ - _END_ trong _TOTAL_ phiếu" 
+            }
+        });
+
+        // Nút IN PHIẾU – in qua iframe ẩn, không mở tab mới
+        $('#historyTable').on('click', '.btn-print', function(){
+            const id = $(this).data('id');
+            const frame = document.getElementById('print-frame');
+            if (!id || !frame) return;
+
+            frame.onload = function() {
+                try {
+                    frame.contentWindow.focus();
+                    frame.contentWindow.print();
+                } catch (e) {
+                    console.error('Lỗi in phiếu nhập:', e);
+                    alert('Trình duyệt có thể đang chặn cửa sổ in, vui lòng cho phép hoặc mở in_phieunhap.php trực tiếp.');
+                }
+            };
+            frame.src = 'in_phieunhap.php?id=' + id;
         });
     });
 
@@ -271,5 +294,8 @@ $list_phieu = $nl->get_all_phieu_nhap($tungay, $denngay);
         }
     }
 </script>
+
+<!-- iframe ẩn dùng để in phiếu, không mở tab mới -->
+<iframe id="print-frame" style="display:none;" src="about:blank"></iframe>
 
 <?php include 'inc/footer.php'; ?>

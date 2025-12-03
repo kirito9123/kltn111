@@ -423,11 +423,11 @@ $roles = [0 => 'Admin', 1 => 'Kế toán', 2 => 'NV Quầy', 3 => 'NV Bếp', 4 
                                         <th width="5%">ID</th>
                                         <th width="18%" style="text-align:left;">Nhân Viên</th>
                                         <th width="7%">Số Ca</th>
-                                        <th width="13%" style="text-align:right;">Lương Cứng</th>
-                                        <th width="13%" style="background:#d1e7dd; color:#0f5132;">(+) Thưởng</th>
-                                        <th width="13%" style="background:#f8d7da; color:#842029;">(-) Phạt</th>
-                                        <th width="17%">Ghi chú</th>
-                                        <th width="12%" style="text-align:right;">Thực Lãnh</th>
+                                        <th width="15%" style="text-align:right;">Lương Cứng</th>
+                                        <th width="10%">Thưởng</th>
+                                        <th width="10%">Phạt</th>
+                                        <th width="15%">Lý Do</th>
+                                        <th width="15%" style="text-align:right;">Thực Lãnh</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -447,7 +447,19 @@ $roles = [0 => 'Admin', 1 => 'Kế toán', 2 => 'NV Quầy', 3 => 'NV Bếp', 4 
                                                 <span style="background:#e9ecef; color:#495057; padding:5px 12px; border-radius:50px; font-weight:700; font-size: 13px; display:inline-block; min-width:35px;"><?php echo $row['so_ca']; ?></span>
                                             </td>
                                             <td style="text-align:right; font-family:'Consolas', monospace; font-size:14px; font-weight: 600; color: #495057;">
-                                                <span style="font-size:10px; color:#adb5bd;">VNĐ</span>
+                                                <?php echo number_format($row['luong_cung']); ?> <span style="font-size:10px; color:#adb5bd;">VNĐ</span>
+                                            </td>
+                                            <td>
+                                                <input type="text" name="thuong[<?php echo $rowID; ?>]" class="money-input input-bonus" placeholder="0" oninput="calcRow(<?php echo $rowID; ?>, <?php echo $row['luong_cung']; ?>)">
+                                            </td>
+                                            <td>
+                                                <input type="text" name="phat[<?php echo $rowID; ?>]" class="money-input input-fine" placeholder="0" oninput="calcRow(<?php echo $rowID; ?>, <?php echo $row['luong_cung']; ?>)">
+                                            </td>
+                                            <td>
+                                                <input type="text" name="ly_do[<?php echo $rowID; ?>]" class="input-reason" placeholder="Lý do...">
+                                            </td>
+                                            <td style="text-align:right; font-family:'Consolas', monospace; font-size:15px; font-weight: 800; color: #d63384;">
+                                                <span id="final_<?php echo $rowID; ?>" class="total-display"><?php echo number_format($row['luong_cung']); ?></span>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -474,106 +486,105 @@ $roles = [0 => 'Admin', 1 => 'Kế toán', 2 => 'NV Quầy', 3 => 'NV Bếp', 4 
             </div>
 
             <div id="payment" class="tab-content <?php echo $currentTab == 'payment' ? 'active' : ''; ?>">
-                <div class="block">
-                    <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:25px; border: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center;">
-                        <form method="GET" action="quanlyluong.php" style="display:flex; gap:15px; align-items:center;">
-                            <input type="hidden" name="tab" value="payment">
-                            <strong style="color:#495057;">📂 Xem lịch sử tháng:</strong>
-                            <select name="thang" style="padding:8px 12px; border-radius:4px; border:1px solid #ced4da; background:white;"><?php for ($i = 1; $i <= 12; $i++) echo "<option value='$i' " . ($i == $selected_month ? 'selected' : '') . ">Tháng $i</option>"; ?></select>
-                            <select name="nam" style="padding:8px 12px; border-radius:4px; border:1px solid #ced4da; background:white;">
-                                <option value="2025">2025</option>
-                            </select>
-                            <button type="submit" class="btn-action btn-blue">Xem</button>
-                        </form>
-
-                        <?php if ($hasHistory): ?>
-                            <a href="in_luong.php?thang=<?php echo $selected_month; ?>&nam=<?php echo $selected_year; ?>"
-                                target="_blank"
-                                class="btn-action btn-gray"
-                                style="padding: 10px 20px;">
-                                🖨️ In Bảng Tổng Hợp Tháng <?php echo "$selected_month/$selected_year"; ?>
-                            </a>
-                        <?php endif; ?>
-                    </div>
+                <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:25px; border: 1px solid #dee2e6;">
+                    <form method="GET" action="quanlyluong.php" style="display:flex; gap:15px; align-items:center; flex-wrap: wrap;">
+                        <input type="hidden" name="tab" value="payment">
+                        <strong style="color:#495057;">📂 Xem lịch sử tháng:</strong>
+                        <select name="thang" style="padding:8px 12px; border-radius:4px; border:1px solid #ced4da; background:white;"><?php for ($i = 1; $i <= 12; $i++) echo "<option value='$i' " . ($i == $selected_month ? 'selected' : '') . ">Tháng $i</option>"; ?></select>
+                        <select name="nam" style="padding:8px 12px; border-radius:4px; border:1px solid #ced4da; background:white;">
+                            <option value="2025">2025</option>
+                        </select>
+                        <button type="submit" class="btn-action btn-blue">Xem</button>
+                    </form>
 
                     <?php if ($hasHistory): ?>
-                        <table class="custom-table">
-                            <thead>
-                                <tr>
-                                    <th width="5%">ID</th>
-                                    <th width="20%" style="text-align:left;">Họ Tên</th>
-                                    <th width="12%">Chi tiết cơ bản</th>
-                                    <th width="12%">Thưởng / Phạt</th>
-                                    <th width="15%">Lý Do</th>
-                                    <th width="15%" style="text-align:right;">Thực Lãnh</th>
-                                    <th width="10%">Trạng Thái</th>
-                                    <th width="15%" style="text-align:center;">Hành Động</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                $tongDaChi = 0;
-                                mysqli_data_seek($historyData, 0);
-                                while ($row = $historyData->fetch_assoc()):
-                                    $luongCung = ($row['tong_ca'] * $row['muc_luong_ca']) + $row['phu_cap'];
-                                    if ($row['trang_thai'] == 1) $tongDaChi += $row['thuc_lanh'];
-                                ?>
-                                    <tr>
-                                        <td style="text-align:center; color:#888; font-weight:bold;"><?php echo $row['mans']; ?></td>
-                                        <td style="font-weight:700; color:#2c3e50;"><?php echo $row['hoten']; ?></td>
-                                        <td style="font-size:13px;">
-                                            <div style="margin-bottom:2px;">Ca làm: <b><?php echo $row['tong_ca']; ?></b></div>
-                                            <div style="color:#6c757d;">Lương cứng: <?php echo number_format($luongCung); ?></div>
-                                        </td>
-                                        <td>
-                                            <?php if ($row['tien_thuong'] > 0) echo "<div style='color:#198754; font-weight:600;'>+ " . number_format($row['tien_thuong']) . "</div>"; ?>
-                                            <?php if ($row['tien_phat'] > 0) echo "<div style='color:#dc3545; font-weight:600;'>- " . number_format($row['tien_phat']) . "</div>"; ?>
-                                            <?php if ($row['tien_thuong'] == 0 && $row['tien_phat'] == 0) echo "<span style='color:#adb5bd;'>-</span>"; ?>
-                                        </td>
-                                        <td style="font-style:italic; color:#6c757d; font-size:12px; max-width:150px; white-space:normal;"><?php echo $row['ly_do']; ?></td>
-                                        <td style="text-align:right; font-size:15px; font-weight:800; color:#d63384; font-family:'Consolas', monospace;">
-                                            <?php echo number_format($row['thuc_lanh']); ?>
-                                        </td>
-                                        <td style="text-align:center;">
-                                            <?php if ($row['trang_thai'] == 1): ?>
-                                                <span class="badge badge-paid">Đã chi</span>
-                                                <div style="font-size:10px; color:#198754; margin-top:4px;"><?php echo date('d/m H:i', strtotime($row['ngay_thanh_toan'])); ?></div>
-                                            <?php else: ?>
-                                                <span class="badge badge-unpaid">Chưa chi</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td style="text-align:center;">
-                                            <div style="display: flex; gap: 8px; justify-content: center;">
-                                                <?php if ($row['trang_thai'] == 0): ?>
-                                                    <a href="quanlyluong.php?tab=payment&pay_id=<?php echo $row['id_bangluong']; ?>&thang=<?php echo $selected_month; ?>&nam=<?php echo $selected_year; ?>"
-                                                        class="btn-action btn-blue" onclick="return confirm('Xác nhận đã trả tiền mặt/chuyển khoản cho nhân viên này?');" title="Xác nhận đã trả lương">💰 Chi Tiền</a>
-                                                <?php else: ?>
-                                                    <button class="btn-action btn-gray" style="cursor: default; opacity: 0.6;" disabled>✔ Xong</button>
-                                                <?php endif; ?>
-
-                                                <a href="in_luong.php?id=<?php echo $row['id_bangluong']; ?>" class="btn-action btn-gray" style="background:#6c757d;" target="_blank" title="In phiếu lương cá nhân">🖨️ Phiếu</a>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <?php endwhile; ?>
-                            </tbody>
-                            <tfoot style="background:#f8f9fa;">
-                                <tr>
-                                    <td colspan="5" style="text-align:right; font-weight:bold; padding:15px; color: #495057;">TỔNG ĐÃ CHI TIỀN:</td>
-                                    <td colspan="3" style="font-weight:800; color:#198754; font-size:18px; text-align: left; padding-left: 15px;"><?php echo number_format($tongDaChi); ?> VNĐ</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    <?php else: ?>
-                        <div style="text-align:center; padding:60px; color:#adb5bd;">
-                            <div style="font-size: 50px; margin-bottom: 15px;">📂</div>
-                            <p style="font-size: 16px;">Chưa có lịch sử lương của tháng <?php echo "$selected_month/$selected_year"; ?>.</p>
-                        </div>
+                        <a href="in_luong.php?thang=<?php echo $selected_month; ?>&nam=<?php echo $selected_year; ?>"
+                            target="_blank"
+                            class="btn-action btn-gray"
+                            style="padding: 10px 20px;">
+                            🖨️ In Bảng Tổng Hợp Tháng <?php echo "$selected_month/$selected_year"; ?>
+                        </a>
                     <?php endif; ?>
                 </div>
+
+                <?php if ($hasHistory): ?>
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th width="5%">ID</th>
+                                <th width="20%" style="text-align:left;">Họ Tên</th>
+                                <th width="12%">Chi tiết cơ bản</th>
+                                <th width="12%">Thưởng / Phạt</th>
+                                <th width="15%">Lý Do</th>
+                                <th width="15%" style="text-align:right;">Thực Lãnh</th>
+                                <th width="10%">Trạng Thái</th>
+                                <th width="15%" style="text-align:center;">Hành Động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $tongDaChi = 0;
+                            mysqli_data_seek($historyData, 0);
+                            while ($row = $historyData->fetch_assoc()):
+                                $luongCung = ($row['tong_ca'] * $row['muc_luong_ca']) + $row['phu_cap'];
+                                if ($row['trang_thai'] == 1) $tongDaChi += $row['thuc_lanh'];
+                            ?>
+                                <tr>
+                                    <td style="text-align:center; color:#888; font-weight:bold;"><?php echo $row['mans']; ?></td>
+                                    <td style="font-weight:700; color:#2c3e50;"><?php echo $row['hoten']; ?></td>
+                                    <td style="font-size:13px;">
+                                        <div style="margin-bottom:2px;">Ca làm: <b><?php echo $row['tong_ca']; ?></b></div>
+                                        <div style="color:#6c757d;">Lương cứng: <?php echo number_format($luongCung); ?></div>
+                                    </td>
+                                    <td>
+                                        <?php if ($row['tien_thuong'] > 0) echo "<div style='color:#198754; font-weight:600;'>+ " . number_format($row['tien_thuong']) . "</div>"; ?>
+                                        <?php if ($row['tien_phat'] > 0) echo "<div style='color:#dc3545; font-weight:600;'>- " . number_format($row['tien_phat']) . "</div>"; ?>
+                                        <?php if ($row['tien_thuong'] == 0 && $row['tien_phat'] == 0) echo "<span style='color:#adb5bd;'>-</span>"; ?>
+                                    </td>
+                                    <td style="font-style:italic; color:#6c757d; font-size:12px; max-width:150px; white-space:normal;"><?php echo $row['ly_do']; ?></td>
+                                    <td style="text-align:right; font-size:15px; font-weight:800; color:#d63384; font-family:'Consolas', monospace;">
+                                        <?php echo number_format($row['thuc_lanh']); ?>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <?php if ($row['trang_thai'] == 1): ?>
+                                            <span class="badge badge-paid">Đã chi</span>
+                                            <div style="font-size:10px; color:#198754; margin-top:4px;"><?php echo date('d/m H:i', strtotime($row['ngay_thanh_toan'])); ?></div>
+                                        <?php else: ?>
+                                            <span class="badge badge-unpaid">Chưa chi</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <div style="display: flex; gap: 8px; justify-content: center;">
+                                            <?php if ($row['trang_thai'] == 0): ?>
+                                                <a href="quanlyluong.php?tab=payment&pay_id=<?php echo $row['id_bangluong']; ?>&thang=<?php echo $selected_month; ?>&nam=<?php echo $selected_year; ?>"
+                                                    class="btn-action btn-blue" onclick="return confirm('Xác nhận đã trả tiền mặt/chuyển khoản cho nhân viên này?');" title="Xác nhận đã trả lương">💰 Chi Tiền</a>
+                                            <?php else: ?>
+                                                <button class="btn-action btn-gray" style="cursor: default; opacity: 0.6;" disabled>✔ Xong</button>
+                                            <?php endif; ?>
+
+                                            <a href="in_luong.php?id=<?php echo $row['id_bangluong']; ?>" class="btn-action btn-gray" style="background:#6c757d;" target="_blank" title="In phiếu lương cá nhân">🖨️ Phiếu</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                        <tfoot style="background:#f8f9fa;">
+                            <tr>
+                                <td colspan="5" style="text-align:right; font-weight:bold; padding:15px; color: #495057;">TỔNG ĐÃ CHI TIỀN:</td>
+                                <td colspan="3" style="font-weight:800; color:#198754; font-size:18px; text-align: left; padding-left: 15px;"><?php echo number_format($tongDaChi); ?> VNĐ</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                <?php else: ?>
+                    <div style="text-align:center; padding:60px; color:#adb5bd;">
+                        <div style="font-size: 50px; margin-bottom: 15px;">📂</div>
+                        <p style="font-size: 16px;">Chưa có lịch sử lương của tháng <?php echo "$selected_month/$selected_year"; ?>.</p>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
+</div>
 </div>
 
 <script>

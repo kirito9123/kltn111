@@ -70,19 +70,45 @@ try {
     }
     $so_user = mysqli_real_escape_string($db->link, $so_user);
 
-    // ======= KIỂM TRA BÀN TRỐNG =======
+    // ======= [SỬA] KIỂM TRA BÀN TRỐNG THEO NGÀY =======
+    // Logic cũ: Check bảng 'ban' -> SAI (Vì nó khóa bàn vĩnh viễn)
+    // Logic mới: Check bảng 'hopdong' theo ngày -> ĐÚNG
+
     $unavailable = [];
-    foreach ($so_ban as $ban_id) {
-        $ban_id = (int)$ban_id;
-        if ($rs = $db->select("SELECT tenban, trangthai FROM ban WHERE id_ban = {$ban_id} LIMIT 1")) {
-            if ($rs->num_rows > 0) {
-                $row = $rs->fetch_assoc();
-                if ((int)$row['trangthai'] === 1) $unavailable[] = $row['tenban'];
+
+    // 1. Tìm tất cả các bàn đã bị đặt trong ngày này ($dates)
+    // Loại trừ đơn đã hủy (cancelled) và đơn đã xong (completed - tuỳ bạn, thường completed nghĩa là xong rồi bàn trống lại)
+    $query_check = "SELECT so_ban FROM hopdong 
+                    WHERE dates = '$dates' 
+                    AND payment_status != 'cancelled' 
+                    AND payment_status != 'completed'";
+    
+    $rs_check = $db->select($query_check);
+    $booked_tables = [];
+
+    if ($rs_check) {
+        while ($r = $rs_check->fetch_assoc()) {
+            // Cột so_ban lưu chuỗi ví dụ "1,5,6"
+            $ids = explode(',', $r['so_ban']);
+            foreach ($ids as $id) {
+                $booked_tables[] = (int)trim($id);
             }
         }
     }
+
+    // 2. So sánh bàn khách chọn với danh sách đã đặt
+    foreach ($so_ban as $ban_id) {
+        $ban_id = (int)$ban_id;
+        if (in_array($ban_id, $booked_tables)) {
+            // Lấy tên bàn để báo lỗi
+            $rs_name = $db->select("SELECT tenban FROM ban WHERE id_ban = {$ban_id} LIMIT 1");
+            $name = ($rs_name && $rs_name->num_rows > 0) ? $rs_name->fetch_assoc()['tenban'] : "Bàn #$ban_id";
+            $unavailable[] = $name;
+        }
+    }
+
     if (!empty($unavailable)) {
-        respond(['success' => false, 'message' => 'Các bàn đã được đặt: ' . implode(', ', $unavailable)], 409);
+        respond(['success' => false, 'message' => 'Rất tiếc, vào ngày ' . $dates . ' các bàn sau đã có người đặt: ' . implode(', ', $unavailable)], 409);
     }
 
     // ======= CHUẨN BỊ DỮ LIỆU LƯU =======
@@ -98,10 +124,9 @@ try {
     $noidung = "Đặt bàn ngày {$dates} lúc {$tg} - Loại phòng: {$loaiphong_ten} - Phòng: {$phong_ten} - Bàn: {$tenBanString}";
     $noidung = mysqli_real_escape_string($db->link, $noidung);
 
-    // ======= GHI HỢP ĐỒNG (đặt cọc = 0, số tiền = 0 ở bước này) =======
-    // Lưu ý: nếu cột NOT NULL (strict mode), cần truyền giá trị (đã set 0 bên dưới)
-    $so_tien   = 0; // tổng tiền sẽ tính sau khi chọn món
-    $thanhtien = 0; // nếu bạn dùng cột này, giữ 0 ở bước booking
+    // ======= GHI HỢP ĐỒNG =======
+    $so_tien   = 0; 
+    $thanhtien = 0; 
 
     $sql = "
         INSERT INTO hopdong (
@@ -123,13 +148,11 @@ try {
 
     $booking_id = (int)$db->link->insert_id;
 
-    // ======= CẬP NHẬT TRẠNG THÁI BÀN =======
-    foreach ($so_ban as $ban_id) {
-        $ban_id = (int)$ban_id;
-        $db->update("UPDATE ban SET trangthai = 1 WHERE id_ban = {$ban_id}");
-    }
+    // ======= [QUAN TRỌNG] ĐÃ XÓA ĐOẠN UPDATE BẢNG BAN =======
+    // Lý do: Chúng ta không update bảng 'ban' thành bận vĩnh viễn nữa.
+    // Hệ thống sẽ tự tính trạng thái dựa trên bảng 'hopdong'.
 
-    // ======= GHIM PHIÊN LÀM VIỆC (QUAN TRỌNG) =======
+    // ======= GHIM PHIÊN LÀM VIỆC =======
     Session::set('booking_id', $booking_id);
     Session::set('order_data', [
         'booking_id'    => $booking_id,
@@ -137,14 +160,14 @@ try {
         'so_dien_thoai' => $so_user,
         'ngay'          => $dates,
         'gio_bat_dau'   => $tg,
-        'so_nguoi'      => null,              // nếu có input số người, bạn map vào đây
+        'so_nguoi'      => null,
         'loaiphong_id'  => $loaiphong_id,
         'loaiphong_ten' => $loaiphong_ten,
         'phong_id'      => $phong_id,
         'phong_ten'     => $phong_ten,
-        'so_ban_ids'    => $so_ban,          // mảng id_ban
-        'so_ban_ten'    => $tenBanArray,     // mảng tên bàn
-        'so_ban_string' => $so_ban_string,   // chuỗi id_ban join
+        'so_ban_ids'    => $so_ban,
+        'so_ban_ten'    => $tenBanArray,
+        'so_ban_string' => $so_ban_string,
         'ghi_chu'       => $noidung
     ]);
 
@@ -160,5 +183,3 @@ try {
     error_log('[BOOKING][ERR] ' . $e->getMessage());
     respond(['success' => false, 'message' => 'Lỗi máy chủ: ' . $e->getMessage()], 500);
 }
-
-// KHÔNG đặt "?>"

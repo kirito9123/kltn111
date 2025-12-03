@@ -29,8 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
 
 <style>
     /* Reset và căn chỉnh cơ bản */
-    * { box-sizing: border-box; }
-    
+    * {
+        box-sizing: border-box;
+    }
+
     /* Vỏ bọc chính của Form */
     .form-wrapper {
         max-width: 700px;
@@ -85,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
         box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
         background-color: #fff;
     }
-    
+
     .form-group textarea {
         min-height: 150px;
         resize: vertical;
@@ -101,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
         text-align: center;
         margin-top: 30px;
     }
-    
+
     .form-actions input[type="submit"] {
         padding: 14px 35px;
         background-color: #3498db;
@@ -118,9 +120,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
         background-color: #2980b9;
         transform: translateY(-2px);
     }
-    
+
     /* Styling cho thông báo */
-    .error, .success {
+    .error,
+    .success {
         display: block;
         padding: 12px;
         margin-bottom: 20px;
@@ -128,11 +131,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
         font-weight: 600;
         text-align: center;
     }
+
     .error {
         background-color: #f8d7da;
         color: #721c24;
         border: 1px solid #f5c6cb;
     }
+
     .success {
         background-color: #d4edda;
         color: #155724;
@@ -144,26 +149,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
     <div class="box round first grid">
         <div class="form-wrapper">
             <h2>Thêm Trang Thiết Bị Mới</h2>
-            
-            <?php 
+
+            <?php
             if (isset($insertThietBi)) {
                 echo $insertThietBi;
             }
             ?>
-            
+
             <form action="equipmentadd.php" method="post" enctype="multipart/form-data">
-                
+
                 <div class="form-group">
                     <label for="tenthietbi">Tên Thiết Bị</label>
                     <input type="text" name="tenthietbi" placeholder="Nhập tên trang thiết bị..." required />
                 </div>
-                
+
                 <div class="form-group">
                     <label for="id_phong">Chọn Phòng</label>
                     <select name="id_phong" required>
                         <option value="">-- Chọn Phòng --</option>
                         <?php
-                        $listphong = $phong_cls->show_phong_all(); 
+                        $listphong = $phong_cls->show_phong_all();
                         if ($listphong) {
                             while ($result = $listphong->fetch_assoc()) {
                                 // Sử dụng id_phong làm value
@@ -178,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
                 <div class="form-group">
                     <label for="tinhtrang">Trạng thái Thiết Bị</label>
                     <select name="tinhtrang" required>
-                        <option value="1" selected>1. Hoạt động</option> 
+                        <option value="1" selected>1. Hoạt động</option>
                         <option value="2">2. Hư hỏng</option>
                         <option value="3">3. Cũ</option>
                     </select>
@@ -201,6 +206,50 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
             </form>
         </div>
     </div>
+</div>
+
+<?php include 'inc/footer.php'; ?>
+<select name="tinhtrang" required>
+    <option value="1" selected>1. Hoạt động</option>
+    <option value="2">2. Hư hỏng</option>
+    <option value="3">3. Cũ</option>
+</select>
+</div>
+
+<div class="form-group">
+    <label for="ghichu">Ghi chú / Mô tả</label>
+    <textarea name="ghichu" class="tinymce" placeholder="Nhập ghi chú hoặc mô tả chi tiết về thiết bị..."></textarea>
+</div>
+
+<?php
+if (isset($insertThietBi)) {
+    echo $insertThietBi;
+}
+?>
+
+<form action="equipmentadd.php" method="post" enctype="multipart/form-data">
+    <option value="2">2. Hư hỏng</option>
+    <option value="3">3. Cũ</option>
+    </select>
+    </div>
+
+    <div class="form-group">
+        <label for="ghichu">Ghi chú / Mô tả</label>
+        <textarea name="ghichu" class="tinymce" placeholder="Nhập ghi chú hoặc mô tả chi tiết về thiết bị..."></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="image">Tải hình ảnh</label>
+        <input type="file" name="image" />
+        <small style="color: #7f8c8d; display: block; margin-top: 5px;">Chọn hình ảnh cho thiết bị (Tùy chọn)</small>
+    </div>
+
+    <div class="form-actions">
+        <input type="submit" name="submit" value="Lưu lại" />
+    </div>
+</form>
+</div>
+</div>
 </div>
 
 <?php include 'inc/footer.php'; ?>
