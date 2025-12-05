@@ -17,7 +17,7 @@ if (!isset($db->link)) {
 }
 
 /* ========== 1) VERIFY HASH & KẾT QUẢ ========== */
-$vnp_HashSecret  = "BEZLUPOPOTXTDYZHCBGDJBHFJPBLSARL";
+$vnp_HashSecret  = "SLE5RRY8UJMZR2IZX1UF4JAJIFPAOKCP";
 $vnp_SecureHash  = $_GET['vnp_SecureHash'] ?? '';
 
 $inputData = [];
@@ -98,7 +98,6 @@ $del->close();
 if ($isBookingOnly) {
     /* === BOOKING-ONLY (Đặt bàn, không chọn món) → KHÔNG insert chi tiết, CHỐT 30K === */
     $tong = 30000.0;
-
 } else {
     /* === CÓ MÓN → GIỮ NGUYÊN LOGIC CŨ === */
     $insSql = "INSERT INTO hopdong_chitiet (hopdong_id, monan_id, soluong, gia, thanhtien)
@@ -126,7 +125,7 @@ if ($isBookingOnly) {
             $mid = (int)($row['id'] ?? $row['id_mon'] ?? $row['monan_id'] ?? 0);
             $qty = (int)($row['qty'] ?? $row['so_luong'] ?? $row['soluong'] ?? 0);
             $gia = isset($row['price']) ? (float)$row['price']
-                 : (isset($row['gia']) ? (float)$row['gia'] : 0.0);
+                : (isset($row['gia']) ? (float)$row['gia'] : 0.0);
 
             if ($mid <= 0 || $qty <= 0) continue;
 

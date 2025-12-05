@@ -179,78 +179,118 @@ class NhanSu
      * @param array $data Dữ liệu cần cập nhật từ form
      * @return string Thông báo thành công/lỗi
      */
-    public function capNhatHoSoNhanSu($mans, $data)
+    // Trong file classes/nhansu.php
+
+    public function capNhatHoSoNhanSu($mans, $data, $files)
     {
         $mans = (int)$mans;
-        // Lấy thông tin hiện tại để lấy id_admin và ảnh cũ
+        // Lấy thông tin hiện tại
         $info = $this->layThongTinNhanSu($mans);
-        if (!$info) return "<span class='error'>Không tìm thấy nhân sự để cập nhật.</span>";
+        if (!$info) return "<span class='error'>Không tìm thấy nhân sự.</span>";
         $id_admin = $info['id_admin'];
         $anh_cu = $info['anh_dai_dien'];
 
-        // Lấy và kiểm tra dữ liệu
+        // 1. Validate & Lấy dữ liệu cơ bản
         $hoten = $this->fm->validation($data['hoten']);
+        $adminUser = $this->fm->validation($data['adminuser']); // Tên đăng nhập (để sửa bên tb_admin)
+        $level = (int)$data['level']; // Chức vụ
+
+        // Thông tin cá nhân
         $ngaysinh = $this->fm->validation($data['ngaysinh']);
-        $gioitinh = $this->fm->validation($data['gioitinh'] ?? null);
+        $gioitinh = $this->fm->validation($data['gioitinh']);
         $diachi = $this->fm->validation($data['diachi']);
         $ngayvaolam = $this->fm->validation($data['ngayvaolam']);
         $cccd = $this->fm->validation($data['cccd']);
         $ngaycap_cccd = $this->fm->validation($data['ngaycap_cccd']);
         $noicap_cccd = $this->fm->validation($data['noicap_cccd']);
-        $quequan = $this->fm->validation($data['quequan'] ?? null);
-        // ... các trường khác ...
+        $quequan = $this->fm->validation($data['quequan']);
+        $dantoc = $this->fm->validation($data['dantoc']);
+        $quoctich = $this->fm->validation($data['quoctich']);
+        $noisinh = $this->fm->validation($data['noisinh']);
+        $thongtin_them = $this->fm->validation($data['thongtin_them']);
 
-        // Xử lý upload ảnh mới nếu có
-        $anh_dai_dien_sql = ""; // Chuỗi SQL để cập nhật ảnh
-        $anh_moi = ""; // Tên file ảnh mới
-        $path_anh_moi = ""; // Đường dẫn file ảnh mới
-        if (isset($_FILES["anh_dai_dien"]) && !empty($_FILES["anh_dai_dien"]["name"]) && $_FILES["anh_dai_dien"]["error"] == 0) {
+        // Thông tin gia đình (Cha)
+        $hoten_cha = $this->fm->validation($data['hoten_cha']);
+        $namsinh_cha = !empty($data['namsinh_cha']) ? (int)$data['namsinh_cha'] : 'NULL';
+        $nghenghiep_cha = $this->fm->validation($data['nghenghiep_cha']);
+        $sdt_cha = $this->fm->validation($data['sdt_cha']);
+
+        // Thông tin gia đình (Mẹ)
+        $hoten_me = $this->fm->validation($data['hoten_me']);
+        $namsinh_me = !empty($data['namsinh_me']) ? (int)$data['namsinh_me'] : 'NULL';
+        $nghenghiep_me = $this->fm->validation($data['nghenghiep_me']);
+        $sdt_me = $this->fm->validation($data['sdt_me']);
+
+        if (empty($hoten) || empty($cccd)) {
+            return "<span class='error'>Họ tên và CCCD là bắt buộc.</span>";
+        }
+
+        // 2. Xử lý ảnh đại diện
+        $anh_sql_part = "";
+        $anh_moi_upload = false;
+        $file_name_new = "";
+
+        if (isset($files['anh_dai_dien']) && !empty($files['anh_dai_dien']['name'])) {
             $permited = array('jpg', 'jpeg', 'png', 'gif');
-            $file_name = $_FILES['anh_dai_dien']['name'];
-            $file_size = $_FILES['anh_dai_dien']['size'];
-            $file_temp = $_FILES['anh_dai_dien']['tmp_name'];
+            $file_name = $files['anh_dai_dien']['name'];
+            $file_size = $files['anh_dai_dien']['size'];
+            $file_temp = $files['anh_dai_dien']['tmp_name'];
+
+            $div = explode('.', $file_name);
+            $file_ext = strtolower(end($div));
+            $file_name_new = 'avt_' . substr(md5(time() . rand()), 0, 10) . '.' . $file_ext;
+            $uploaded_image = "../images/avt/" . $file_name_new;
+
+            if ($file_size > 2097152) {
+                return "<span class='error'>Ảnh quá lớn (Max 2MB).</span>";
+            } elseif (in_array($file_ext, $permited) === false) {
+                return "<span class='error'>Chỉ hỗ trợ định dạng ảnh (jpg, png, gif).</span>";
+            }
+
+            // Di chuyển ảnh
+            move_uploaded_file($file_temp, $uploaded_image);
+            $anh_sql_part = ", anh_dai_dien = '$file_name_new'";
+            $anh_moi_upload = true;
         }
 
-        // Kiểm tra dữ liệu bắt buộc
-        if (empty($hoten) || empty($ngaysinh) || empty($diachi) || empty($ngayvaolam) || empty($cccd) || empty($ngaycap_cccd) || empty($noicap_cccd)) {
-            // Xóa ảnh mới đã upload nếu có lỗi validation
-            if (!empty($path_anh_moi) && file_exists($path_anh_moi)) unlink($path_anh_moi);
-            return "<span class='error'>Vui lòng điền đầy đủ thông tin bắt buộc.</span>";
-        }
-
-        // Bắt đầu transaction
+        // 3. Thực hiện Update
         $this->db->link->begin_transaction();
         try {
-            // 1. Cập nhật bảng nhansu
+            // Update bảng nhansu
             $queryNS = "UPDATE nhansu SET
-                        hoten = '$hoten', ngaysinh = '$ngaysinh', gioitinh = '$gioitinh',
-                        diachi = '$diachi', ngayvaolam = '$ngayvaolam', cccd = '$cccd',
-                        ngaycap_cccd = '$ngaycap_cccd', noicap_cccd = '$noicap_cccd', quequan = '$quequan'
-                        {$anh_dai_dien_sql} /* Thêm phần cập nhật ảnh nếu có */
-                      WHERE mans = '$mans'";
-            if (!$this->db->update($queryNS)) throw new Exception("Lỗi cập nhật hồ sơ nhân sự.");
+            hoten = '$hoten', ngaysinh = '$ngaysinh', gioitinh = '$gioitinh',
+            diachi = '$diachi', ngayvaolam = '$ngayvaolam', 
+            cccd = '$cccd', ngaycap_cccd = '$ngaycap_cccd', noicap_cccd = '$noicap_cccd', 
+            quequan = '$quequan', dantoc = '$dantoc', quoctich = '$quoctich', 
+            noisinh = '$noisinh', thongtin_them = '$thongtin_them',
+            hoten_cha = '$hoten_cha', namsinh_cha = $namsinh_cha, nghenghiep_cha = '$nghenghiep_cha', sdt_cha = '$sdt_cha',
+            hoten_me = '$hoten_me', namsinh_me = $namsinh_me, nghenghiep_me = '$nghenghiep_me', sdt_me = '$sdt_me'
+            $anh_sql_part
+            WHERE mans = '$mans'";
 
-            // 2. Cập nhật Name_admin trong tb_admin để đồng bộ
-            $queryAdmin = "UPDATE tb_admin SET Name_admin = '$hoten' WHERE id_admin = '$id_admin'";
-            if (!$this->db->update($queryAdmin)) throw new Exception("Lỗi cập nhật tên tài khoản.");
+            $this->db->update($queryNS);
 
-            // Xóa ảnh cũ nếu upload ảnh mới thành công
-            if (!empty($anh_moi) && !empty($anh_cu) && file_exists("../images/avt/" . $anh_cu)) {
+            // Update bảng tb_admin (Tên hiển thị, User, Level)
+            // Lưu ý: Chỉ cập nhật username nếu chưa tồn tại (cần check thêm nếu muốn chặt chẽ)
+            // Ở đây ta ưu tiên cập nhật Level và Name
+            $queryAdmin = "UPDATE tb_admin SET 
+                       Name_admin = '$hoten',
+                       adminuser = '$adminUser', 
+                       level = '$level' 
+                       WHERE id_admin = '$id_admin'";
+            $this->db->update($queryAdmin);
+
+            // Xóa ảnh cũ nếu có ảnh mới
+            if ($anh_moi_upload && !empty($anh_cu) && file_exists("../images/avt/" . $anh_cu)) {
                 unlink("../images/avt/" . $anh_cu);
             }
 
-            // Cập nhật session nếu tự sửa
-            if (isset($_SESSION['adminId']) && $_SESSION['adminId'] == $id_admin) {
-                $_SESSION['adminName'] = $hoten;
-            }
-
             $this->db->link->commit();
-            return "<span class='success'>Cập nhật hồ sơ thành công.</span>";
+            return "<span class='success'>Cập nhật nhân sự thành công!</span>";
         } catch (Exception $e) {
             $this->db->link->rollback();
-            // Xóa ảnh mới đã upload nếu transaction thất bại
-            if (!empty($path_anh_moi) && file_exists($path_anh_moi)) unlink($path_anh_moi);
-            return "<span class='error'>" . $e->getMessage() . " SQL Error: " . $this->db->link->error . "</span>";
+            if ($anh_moi_upload && file_exists("../images/avt/" . $file_name_new)) unlink("../images/avt/" . $file_name_new);
+            return "<span class='error'>Lỗi: " . $e->getMessage() . "</span>";
         }
     }
 
@@ -401,20 +441,23 @@ class NhanSu
         return 'Không xác định (' . $level . ')'; // Trả về cả số level nếu không tìm thấy
     }
 
-   public function getNhanSuByAdminId($id_admin)
+    public function getNhanSuByAdminId($id_admin)
     {
         $id_admin = (int)$id_admin;
-        $query = "SELECT * FROM nhansu WHERE id_admin = '$id_admin' LIMIT 1";
+        $query = "SELECT ns.*, l.luong_ca, l.phu_cap 
+              FROM nhansu ns 
+              LEFT JOIN luong l ON ns.mans = l.mans 
+              WHERE ns.id_admin = '$id_admin' 
+              LIMIT 1";
         $result = $this->db->select($query);
         return $result;
     }
-
     public function updateNhanSu($id_admin, $data, $files)
     {
         $id_admin = mysqli_real_escape_string($this->db->link, $id_admin);
-        
+
         $hoten = mysqli_real_escape_string($this->db->link, $data['hoten']);
-        $ngaysinh = !empty($data['ngaysinh']) ? "'".mysqli_real_escape_string($this->db->link, $data['ngaysinh'])."'" : "NULL";
+        $ngaysinh = !empty($data['ngaysinh']) ? "'" . mysqli_real_escape_string($this->db->link, $data['ngaysinh']) . "'" : "NULL";
         $gioitinh = mysqli_real_escape_string($this->db->link, $data['gioitinh']);
         $diachi = mysqli_real_escape_string($this->db->link, $data['diachi']);
         $quequan = mysqli_real_escape_string($this->db->link, $data['quequan']);
@@ -422,21 +465,23 @@ class NhanSu
         $quoctich = mysqli_real_escape_string($this->db->link, $data['quoctich']);
         $noisinh = mysqli_real_escape_string($this->db->link, $data['noisinh']);
         $cccd = mysqli_real_escape_string($this->db->link, $data['cccd']);
-        $ngaycap_cccd = !empty($data['ngaycap_cccd']) ? "'".mysqli_real_escape_string($this->db->link, $data['ngaycap_cccd'])."'" : "NULL";
+        $ngaycap_cccd = !empty($data['ngaycap_cccd']) ? "'" . mysqli_real_escape_string($this->db->link, $data['ngaycap_cccd']) . "'" : "NULL";
         $noicap_cccd = mysqli_real_escape_string($this->db->link, $data['noicap_cccd']);
-        
+
         $hoten_cha = mysqli_real_escape_string($this->db->link, $data['hoten_cha']);
         $namsinh_cha = !empty($data['namsinh_cha']) ? (int)$data['namsinh_cha'] : "NULL";
         $nghenghiep_cha = mysqli_real_escape_string($this->db->link, $data['nghenghiep_cha']);
         $sdt_cha = mysqli_real_escape_string($this->db->link, $data['sdt_cha']);
-        
+
         $hoten_me = mysqli_real_escape_string($this->db->link, $data['hoten_me']);
         $namsinh_me = !empty($data['namsinh_me']) ? (int)$data['namsinh_me'] : "NULL";
         $nghenghiep_me = mysqli_real_escape_string($this->db->link, $data['nghenghiep_me']);
         $sdt_me = mysqli_real_escape_string($this->db->link, $data['sdt_me']);
         $thongtin_them = mysqli_real_escape_string($this->db->link, $data['thongtin_them']);
 
-        $anh_sql = ""; $anh_ins_k = ""; $anh_ins_v = "";
+        $anh_sql = "";
+        $anh_ins_k = "";
+        $anh_ins_v = "";
         if (!empty($files['anh_dai_dien']['name'])) {
             $div = explode('.', $files['anh_dai_dien']['name']);
             $file_ext = strtolower(end($div));
@@ -469,9 +514,9 @@ class NhanSu
             // Đồng bộ tên qua bảng tb_admin
             $this->db->update("UPDATE tb_admin SET Name_admin = '$hoten' WHERE id_admin = '$id_admin'");
             if (isset($_SESSION['adminName'])) $_SESSION['adminName'] = $hoten;
-            
+
             // TRẢ VỀ CHỮ THƯỜNG (để file profile.php kiểm tra), KHÔNG CẦN THẺ SPAN NỮA
-            return "Cập nhật thành công"; 
+            return "Cập nhật thành công";
         } else {
             return "Lỗi: " . $this->db->link->error;
         }

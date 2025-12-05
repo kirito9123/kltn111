@@ -5,10 +5,20 @@ include_once __DIR__ . '/../lib/database.php';
 
 Session::init();
 
-// Kiểm tra đăng nhập và quyền admin
-if (!Session::get('adminlogin')) { header("Location: login.php"); exit(); }
-if ((int)Session::get('adminlevel') !== 0) {
-    echo "<script>alert('Bạn không phải quản trị viên!'); window.location='index.php';</script>";
+// Kiểm tra đăng nhập
+if (!Session::get('adminlogin')) {
+    header("Location: login.php");
+    exit();
+}
+
+// ✅ SỬA Ở ĐÂY: Lấy level và kiểm tra (cho phép 0 và 3)
+$level = (int)Session::get('adminlevel');
+
+if ($level !== 0 && $level !== 3) {
+    echo "<script>
+        alert('Bạn không có quyền thực hiện thao tác này! Chỉ Admin hoặc Bếp mới được phép.'); 
+        window.location='index.php';
+    </script>";
     exit();
 }
 

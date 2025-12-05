@@ -42,7 +42,7 @@ class nhanvienbep
                 $query .= " AND dates = '$today' ";
                 $query .= " ORDER BY created_at DESC";
                 break;
-                
+
             case 'don_huy':
                 // Lấy tất cả đơn đã hủy để bếp biết cần ngưng làm
                 $query .= " AND payment_status = 'cancelled' ";
@@ -57,16 +57,16 @@ class nhanvienbep
                 }
                 $query .= " ORDER BY dates ASC, tg ASC";
                 break;
-                
+
             case 'tat_ca_chua_xong': // Giữ nguyên, nhưng không dùng trong màn hình bếp này
                 $query .= " AND status = 0 ";
                 $query .= " ORDER BY created_at DESC";
                 break;
         }
-        
+
         // Nếu không có ORDER BY trong switch case, áp dụng default
         if (strpos($query, 'ORDER BY') === false) {
-             $query .= " ORDER BY created_at DESC";
+            $query .= " ORDER BY created_at DESC";
         }
 
         return $this->db->select($query);
@@ -78,7 +78,7 @@ class nhanvienbep
     public function get_chi_tiet_don($id_hd)
     {
         $id_hd = mysqli_real_escape_string($this->db->link, $id_hd);
-        
+
         // [SỬA LẠI] Thêm c.trangthai vào SELECT để biết món nào Bếp làm rồi
         $query = "
             SELECT 
@@ -92,7 +92,7 @@ class nhanvienbep
             JOIN monan m ON c.monan_id = m.id_mon
             WHERE c.hopdong_id = '$id_hd'
         ";
-        
+
         return $this->db->select($query);
     }
 
@@ -102,10 +102,10 @@ class nhanvienbep
     public function hoan_thanh_don($id_hd)
     {
         $id_hd = mysqli_real_escape_string($this->db->link, $id_hd);
-        
+
         // [LOGIC MỚI] Không kiểm tra status = 1 và return ngay nữa
         // Vì có thể đơn đã xong nhưng khách gọi thêm món mới (status lại về 0)
-        
+
         // 1. Thực hiện trừ nguyên liệu kho (Chỉ trừ món chưa làm - trangthai=0)
         $this->tru_nguyen_lieu_theo_don($id_hd);
 
@@ -120,7 +120,8 @@ class nhanvienbep
     }
 
     // --- HÀM PHỤ: TÍNH TOÁN VÀ TRỪ KHO ---
-    private function tru_nguyen_lieu_theo_don($id_hd) {
+    private function tru_nguyen_lieu_theo_don($id_hd)
+    {
         // [SỬA LẠI] Thêm điều kiện AND trangthai = 0 
         // Để không trừ lại kho những món cũ đã trừ trước đó
         $query_mon = "SELECT monan_id, soluong FROM hopdong_chitiet WHERE hopdong_id = '$id_hd' AND trangthai = 0";
@@ -129,7 +130,7 @@ class nhanvienbep
         if ($ds_mon) {
             while ($mon = $ds_mon->fetch_assoc()) {
                 $id_mon = $mon['monan_id'];
-                $sl_mon_khach_goi = $mon['soluong']; 
+                $sl_mon_khach_goi = $mon['soluong'];
 
                 // Lấy công thức (Giữ nguyên logic cũ)
                 $query_ct = "
@@ -144,17 +145,17 @@ class nhanvienbep
                     JOIN don_vi_tinh dvt_kho ON nl.id_dvt = dvt_kho.id_dvt
                     WHERE ct.id_mon = '$id_mon'
                 ";
-                
+
                 $cong_thuc = $this->db->select($query_ct);
 
                 if ($cong_thuc) {
                     while ($nl = $cong_thuc->fetch_assoc()) {
                         $id_nguyen_lieu = $nl['id_nl'];
-                        
+
                         $tong_can_dung = $nl['sl_dinh_muc'] * $sl_mon_khach_goi;
-                        
+
                         $ty_le_quy_doi = $nl['he_so_ct'] / $nl['he_so_kho'];
-                        
+
                         $sl_tru_kho = $tong_can_dung * $ty_le_quy_doi;
 
                         $sql_tru = "UPDATE nguyen_lieu 
@@ -172,10 +173,10 @@ class nhanvienbep
     // ============================================================
     public function tinh_deadline($ngay, $gio)
     {
-        $thoi_gian_don = $ngay . ' ' . $gio; 
-        
-        $deadline_timestamp = strtotime($thoi_gian_don) + (20 * 60); 
-        
+        $thoi_gian_don = $ngay . ' ' . $gio;
+
+        $deadline_timestamp = strtotime($thoi_gian_don) + (20 * 60);
+
         return date('Y-m-d H:i:s', $deadline_timestamp);
     }
 
@@ -195,12 +196,12 @@ class nhanvienbep
     public function thong_ke_bep_hom_nay()
     {
         $today = date('Y-m-d');
-        
+
         $q1 = "SELECT SUM(c.soluong) as tong_mon
                FROM hopdong_chitiet c
                JOIN hopdong h ON c.hopdong_id = h.id
                WHERE h.dates = '$today' AND h.status = 1";
-               
+
         $q2 = "SELECT COUNT(*) as don_cho FROM hopdong WHERE dates = '$today' AND status = 0";
 
         $rs1 = $this->db->select($q1);
@@ -211,5 +212,13 @@ class nhanvienbep
 
         return ['mon_da_lam' => $mon_da_lam, 'don_cho' => $don_cho];
     }
+
+    // ============================================================
+    // 7. [FIX] LẤY DANH SÁCH ĐƠN HỦY TỪ LIST ID (Polling)
+    // ============================================================
+    public function get_cancelled_orders($id_list)
+    {
+        $query = "SELECT id FROM hopdong WHERE id IN ({$id_list}) AND payment_status = 'cancelled'";
+        return $this->db->select($query);
+    }
 }
-?>

@@ -94,10 +94,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <h2>Đăng nhập</h2>
 
       <span>
-        <?php 
-          if (isset($login_check)) {
-            echo $login_check;
-          }
+        <?php
+        if (isset($login_check)) {
+          echo $login_check;
+        }
         ?>
       </span>
 

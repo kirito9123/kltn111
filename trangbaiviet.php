@@ -1,22 +1,39 @@
 <?php
-include 'inc/header.php'; // Giả định có header/footer của frontend
-include 'classes/baiviet.php'; 
-include_once 'helpers/format.php'; 
+// FILE: trangbaiviet.php
+include 'inc/header.php';
+include 'classes/baiviet.php';
+include_once 'helpers/format.php';
 
 $baiviet = new baiviet();
 $fm = new Format();
-$all_baiviet = $baiviet->show_baiviet(0); // Lấy TẤT CẢ các bài viết chưa ẩn
 
-// Tách 2 bài viết mới nhất (Dành cho phần TIN TỨC MỚI NHẤT/FEATURED)
+// 1. XỬ LÝ LỌC DANH MỤC
+$catid = isset($_GET['catid']) ? (int)$_GET['catid'] : null;
+
+// Gọi hàm show_baiviet với tham số lọc category
+$all_baiviet = $baiviet->show_baiviet(0, $catid);
+
+// Xác định tiêu đề trang
+if ($catid) {
+    $catName = $baiviet->get_category_name($catid);
+    $section_title = "DANH MỤC: " . mb_strtoupper($catName, 'UTF-8');
+} else {
+    $section_title = "TIN TỨC MỚI NHẤT";
+}
+
+// 2. PHÂN TÁCH BÀI VIẾT (Featured vs Remaining)
 $featured_posts = [];
 $remaining_posts = [];
 
 if ($all_baiviet && $all_baiviet->num_rows > 0) {
     $count = 0;
     while ($result = $all_baiviet->fetch_assoc()) {
-        // Mặc định người đăng là Triskiet Restaurant
-        $result['ten_admin'] = 'Triskiet Restaurant'; 
+        // Giả định người đăng
+        $result['ten_admin'] = 'Triskiet Restaurant';
+        // Lấy tên thể loại
+        $result['cat_name'] = $baiviet->get_category_name($result['theloai']);
 
+        // 2 bài đầu tiên sẽ hiển thị to
         if ($count < 2) {
             $featured_posts[] = $result;
         } else {
@@ -29,22 +46,23 @@ if ($all_baiviet && $all_baiviet->num_rows > 0) {
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 <style>
-    /* CSS Hero Banner (Đảm bảo có CSS này nếu nó không nằm trong file style chung) */
+    /* --- HERO BANNER --- */
     .hero-wrap-2 {
-        height: 400px; /* Chiều cao cố định */
+        height: 400px;
         background-position: center center;
         background-size: cover;
         position: relative;
     }
+
     .hero-wrap-2 .overlay {
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        content: '';
-        background: rgba(0, 0, 0, 0.5); /* Độ mờ */
+        background: rgba(0, 0, 0, 0.5);
     }
+
     .hero-wrap-2 .slider-text {
         position: absolute;
         top: 50%;
@@ -52,262 +70,351 @@ if ($all_baiviet && $all_baiviet->num_rows > 0) {
         right: 0;
         transform: translateY(-50%);
         color: #fff;
+        text-align: center;
     }
+
     .hero-wrap-2 .breadcrumbs a {
         color: rgba(255, 255, 255, 0.7);
         transition: color 0.3s;
     }
+
     .hero-wrap-2 .breadcrumbs a:hover {
         color: #fff;
     }
 
-    /* Tổng thể & Font */
-    body {
-        font-family: 'Inter', sans-serif;
-        background-color: #ffffff; /* Nền trắng như ảnh mẫu */
-        color: #333;
-    }
-    .news-section-wrap {
-        /* Đặt nội dung vào section để cách ly với header */
-        padding: 50px 0; 
-        background-color: #ffffff;
-    }
-    .main-container {
-        max-width: 1000px;
-        margin: 0 auto;
-        padding: 0 20px;
+    /* --- SIDEBAR DANH MỤC --- */
+    .cat-sidebar {
+        background: #f8f9fa;
+        padding: 25px;
+        border-radius: 8px;
+        border: 1px solid #eee;
+        position: sticky;
+        top: 20px;
+        /* Giữ sidebar khi cuộn */
     }
 
-    /* Tiêu đề chính */
+    .cat-sidebar h4 {
+        font-size: 18px;
+        font-weight: 800;
+        color: #E3242B;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #E3242B;
+        padding-bottom: 10px;
+        text-transform: uppercase;
+    }
+
+    .cat-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .cat-list li {
+        margin-bottom: 10px;
+        border-bottom: 1px dashed #ddd;
+        padding-bottom: 8px;
+    }
+
+    .cat-list li:last-child {
+        border-bottom: none;
+    }
+
+    .cat-list li a {
+        color: #555;
+        text-decoration: none;
+        font-weight: 500;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: 0.2s;
+    }
+
+    .cat-list li a:hover {
+        color: #E3242B;
+        padding-left: 5px;
+    }
+
+    .cat-list li a i {
+        font-size: 12px;
+        color: #ccc;
+    }
+
+    /* --- LAYOUT TIN TỨC --- */
+    .news-section-wrap {
+        padding: 60px 0;
+        background-color: #fff;
+    }
+
     .section-title {
         font-size: 24px;
         font-weight: 800;
         color: #1a1a1a;
         margin-bottom: 30px;
-        padding-bottom: 5px;
+        padding-bottom: 10px;
         display: block;
-        border-bottom: 3px solid #E3242B; /* Màu đỏ nổi bật cho tiêu đề TIN TỨC MỚI NHẤT */
+        border-bottom: 3px solid #E3242B;
         width: fit-content;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 
-    /* Bố cục Tin tức Nổi bật (Giống như 2 bài đầu trong ảnh) */
+    /* Tin nổi bật (To) */
     .featured-news-item {
         display: flex;
-        align-items: flex-start;
-        gap: 20px;
-        margin-bottom: 30px;
+        gap: 25px;
+        margin-bottom: 35px;
+        border-bottom: 1px solid #eee;
         padding-bottom: 30px;
-        border-bottom: 1px solid #e0e0e0;
     }
 
     .featured-news-item:last-child {
-        margin-bottom: 0;
-        padding-bottom: 0;
         border-bottom: none;
     }
-    
+
     .featured-image-wrap {
-        min-width: 300px; /* Chiều rộng cố định cho ảnh */
-        width: 300px; 
-        height: 200px;
+        min-width: 320px;
+        width: 320px;
+        height: 220px;
         overflow: hidden;
         border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     }
-    
+
     .featured-image-wrap img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        transition: transform 0.3s ease;
+        transition: transform 0.3s;
     }
-    
+
     .featured-news-item:hover .featured-image-wrap img {
         transform: scale(1.05);
     }
 
-    .featured-content {
-        flex-grow: 1;
-        padding-top: 5px;
-    }
-
     .featured-content h2 {
-        font-size: 20px;
+        font-size: 22px;
         font-weight: 700;
-        color: #1a1a1a;
         margin-top: 0;
         margin-bottom: 10px;
+        line-height: 1.4;
     }
-    
+
     .featured-content h2 a {
         text-decoration: none;
-        color: inherit;
+        color: #333;
         transition: color 0.2s;
     }
-    
+
     .featured-content h2 a:hover {
-        color: #000000ff; /* Hover màu đỏ */
+        color: #E3242B;
     }
 
-    .featured-content p {
-        font-size: 15px;
+    .cat-badge {
+        display: inline-block;
+        background: #E3242B;
+        color: #fff;
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        font-weight: bold;
+    }
+
+    .featured-desc {
+        color: #666;
         line-height: 1.6;
-        color: #555;
         margin-bottom: 15px;
+        font-size: 15px;
     }
 
-    .featured-meta {
+    .meta-info {
         font-size: 13px;
-        color: #888;
-        display: flex;
-        align-items: center;
-    }
-    
-    .featured-meta a {
-        font-weight: 600;
-        color: #3498db;
-        margin-right: 15px;
-        text-decoration: none;
-    }
-    
-    .featured-meta a:hover {
-        text-decoration: underline;
-    }
-    
-    .featured-meta span {
+        color: #999;
         font-style: italic;
     }
 
-    /* Các bài viết khác */
-    .other-news-list {
-        margin-top: 40px;
-        border-top: 1px solid #e0e0e0;
-        padding-top: 30px;
+    .meta-info a {
+        color: #999;
+        text-decoration: none;
     }
-    
-    .other-news-list h3 {
-        font-size: 20px;
-        font-weight: 700;
-        color: #1a1a1a;
-        margin-bottom: 20px;
-        border-left: 5px solid #3498db;
-        padding-left: 10px;
+
+    /* Tin khác (Danh sách nhỏ) */
+    .other-news-list {
+        margin-top: 30px;
+        border-top: 2px solid #f1f1f1;
+        padding-top: 30px;
     }
 
     .other-news-item {
-        padding: 15px 0;
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
         border-bottom: 1px dashed #eee;
+        padding-bottom: 15px;
     }
 
     .other-news-item:last-child {
         border-bottom: none;
-        padding-bottom: 0;
     }
 
-    .other-news-item a {
+    .other-thumb {
+        width: 100px;
+        height: 70px;
+        border-radius: 5px;
+        object-fit: cover;
+    }
+
+    .other-content {
+        flex: 1;
+    }
+
+    .other-content h5 {
         font-size: 16px;
         font-weight: 600;
+        margin: 0 0 5px;
+        line-height: 1.4;
+    }
+
+    .other-content h5 a {
         color: #333;
         text-decoration: none;
-        transition: color 0.2s;
     }
 
-    .other-news-item a:hover {
-        color: #3498db;
+    .other-content h5 a:hover {
+        color: #E3242B;
     }
 
-    .other-news-meta {
-        font-size: 12px;
-        color: #999;
-        margin-top: 5px;
-    }
-    
-    /* Mobile Responsive */
-    @media (max-width: 768px) {
+    @media(max-width: 768px) {
         .featured-news-item {
             flex-direction: column;
         }
+
         .featured-image-wrap {
             width: 100%;
-            height: 250px;
-            min-width: unset;
-        }
-        .section-title {
-            font-size: 20px;
+            height: 200px;
+            min-width: 100%;
         }
     }
 </style>
 
-<section class="hero-wrap hero-wrap-2" style="background-image: url('images/bg3.jpg');"
-    data-stellar-background-ratio="0.5">
+<section class="hero-wrap hero-wrap-2" style="background-image: url('images/bg3.jpg');" data-stellar-background-ratio="0.5">
     <div class="overlay"></div>
     <div class="container">
         <div class="row no-gutters slider-text align-items-end justify-content-center">
             <div class="col-md-9 ftco-animate text-center mb-4">
-                <h1 class="mb-2 bread">TIN TỨC CỦA NHÀ HÀNG</h1>
-                <p class="breadcrumbs"><span class="mr-2"><a href="index.php">Trang chủ <i
-                    class="ion-ios-arrow-forward"></i></a></span> <span> Tin Tức <i
-                    class="ion-ios-arrow-forward"></i></span></p>
-                </div>
+                <h1 class="mb-2 bread">TIN TỨC NHÀ HÀNG</h1>
+                <p class="breadcrumbs"><span class="mr-2"><a href="index.php">Trang chủ <i class="ion-ios-arrow-forward"></i></a></span> <span>Tin Tức</span></p>
             </div>
         </div>
+    </div>
 </section>
+
 <section class="news-section-wrap">
-    <div class="main-container">
-        <?php if (!empty($featured_posts)): ?>
-            
-            <span class="section-title">TIN TỨC MỚI NHẤT</span>
-            
-            <div class="featured-news">
-                <?php foreach ($featured_posts as $result): ?>
-                    <div class="featured-news-item">
-                        <div class="featured-image-wrap">
-                            <?php if (!empty($result['anh_chinh'])): ?>
-                                <a href="baivietchitiet.php?id=<?php echo $result['id_baiviet']; ?>">
-                                    <img src="images/baiviet/<?php echo $result['anh_chinh']; ?>" alt="<?php echo htmlspecialchars($result['ten_baiviet']); ?>">
-                                </a>
-                            <?php else: ?>
-                                <img src="https://placehold.co/600x400/1a1a1a/ffffff?text=Triskiet+News" alt="Không có ảnh">
-                            <?php endif; ?>
-                        </div>
-                        <div class="featured-content">
-                            <h2><a href="baivietchitiet.php?id=<?php echo $result['id_baiviet']; ?>">
-                                <?php echo htmlspecialchars($fm->textShorten($result['ten_baiviet'], 100)); ?>
-                            </a></h2>
-                            <p><?php echo $fm->textShorten($result['noidung_tongquan'], 250); ?></p>
-                            <div class="featured-meta">
-                                <a href="#"><?php echo htmlspecialchars($result['ten_admin']); ?></a> 
-                                <span><i class="far fa-clock"></i> <?php echo date('d/m/Y H:i', strtotime($result['ngay_tao'])); ?></span>
+    <div class="container">
+        <div class="row">
+
+            <div class="col-md-3">
+                <div class="cat-sidebar">
+                    <h4>📂 DANH MỤC TIN</h4>
+                    <ul class="cat-list">
+                        <li>
+                            <a href="trangbaiviet.php" style="<?php echo ($catid === null) ? 'color:#E3242B; font-weight:bold;' : ''; ?>">
+                                Tất cả tin tức <i class="ion-ios-arrow-forward"></i>
+                            </a>
+                        </li>
+
+                        <?php
+                        $cats = $baiviet->get_all_categories();
+                        foreach ($cats as $id => $name) {
+                            // Kiểm tra nếu đang xem danh mục này thì active màu đỏ
+                            $activeStyle = ($catid == $id) ? 'color:#E3242B; font-weight:bold;' : '';
+                            echo "<li>
+                                    <a href='trangbaiviet.php?catid=$id' style='$activeStyle'>
+                                        $name <i class='ion-ios-arrow-forward'></i>
+                                    </a>
+                                  </li>";
+                        }
+                        ?>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+
+                <?php if (!empty($featured_posts)): ?>
+                    <span class="section-title"><?php echo $section_title; ?></span>
+
+                    <div class="featured-news">
+                        <?php foreach ($featured_posts as $result): ?>
+                            <div class="featured-news-item">
+                                <div class="featured-image-wrap">
+                                    <a href="baivietchitiet.php?id=<?php echo $result['id_baiviet']; ?>">
+                                        <?php if (!empty($result['anh_chinh'])): ?>
+                                            <img src="images/baiviet/<?php echo $result['anh_chinh']; ?>" alt="<?php echo htmlspecialchars($result['ten_baiviet']); ?>">
+                                        <?php else: ?>
+                                            <img src="https://placehold.co/600x400/333/fff?text=No+Image" alt="Không ảnh">
+                                        <?php endif; ?>
+                                    </a>
+                                </div>
+                                <div class="featured-content">
+                                    <span class="cat-badge"><?php echo $result['cat_name']; ?></span>
+
+                                    <h2><a href="baivietchitiet.php?id=<?php echo $result['id_baiviet']; ?>">
+                                            <?php echo htmlspecialchars($fm->textShorten($result['ten_baiviet'], 100)); ?>
+                                        </a></h2>
+
+                                    <p class="featured-desc"><?php echo $fm->textShorten($result['noidung_tongquan'], 160); ?></p>
+
+                                    <div class="meta-info">
+                                        <span><?php echo $result['ten_admin']; ?></span> |
+                                        <span><?php echo date('d/m/Y', strtotime($result['ngay_tao'])); ?></span>
+                                    </div>
+                                </div>
                             </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($remaining_posts)): ?>
+                    <div class="other-news-list">
+                        <h4><?php echo ($catid) ? 'Bài viết khác cùng chuyên mục' : 'Các tin tức khác'; ?></h4>
+
+                        <div class="row">
+                            <?php foreach ($remaining_posts as $result): ?>
+                                <div class="col-md-6">
+                                    <div class="other-news-item">
+                                        <a href="baivietchitiet.php?id=<?php echo $result['id_baiviet']; ?>">
+                                            <?php if (!empty($result['anh_chinh'])): ?>
+                                                <img src="images/baiviet/<?php echo $result['anh_chinh']; ?>" class="other-thumb">
+                                            <?php else: ?>
+                                                <img src="https://placehold.co/100x70/ccc/999" class="other-thumb">
+                                            <?php endif; ?>
+                                        </a>
+                                        <div class="other-content">
+                                            <span style="font-size:10px; color:#E3242B; font-weight:bold; text-transform:uppercase;">
+                                                <?php echo $result['cat_name']; ?>
+                                            </span>
+                                            <h5><a href="baivietchitiet.php?id=<?php echo $result['id_baiviet']; ?>">
+                                                    <?php echo $fm->textShorten($result['ten_baiviet'], 55); ?>
+                                                </a></h5>
+                                            <small class="text-muted"><?php echo date('d/m/Y', strtotime($result['ngay_tao'])); ?></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
                     </div>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-        
-        <?php if (!empty($remaining_posts)): ?>
-            
-            <div class="other-news-list">
-                <h3>Các Tin Tức & Bài Viết Khác</h3>
-                
-                <?php foreach ($remaining_posts as $result): ?>
-                    <div class="other-news-item">
-                        <a href="baivietchitiet.php?id=<?php echo $result['id_baiviet']; ?>">
-                            <?php echo htmlspecialchars($fm->textShorten($result['ten_baiviet'], 120)); ?>
-                        </a>
-                        <div class="other-news-meta">
-                            <span>Người đăng: **<?php echo htmlspecialchars($result['ten_admin']); ?>**</span> |
-                            <span>Ngày đăng: <?php echo date('d/m/Y', strtotime($result['ngay_tao'])); ?></span>
-                        </div>
+                <?php endif; ?>
+
+                <?php if (empty($featured_posts) && empty($remaining_posts)): ?>
+                    <div style="text-align: center; padding: 60px 20px; background: #f9f9f9; border-radius: 8px; border: 1px dashed #ddd;">
+                        <i class="ion-ios-paper-plane" style="font-size: 40px; color: #ccc;"></i>
+                        <h3 style="color:#7f8c8d; margin-top: 15px; font-size: 18px;">Chưa có bài viết nào thuộc danh mục này.</h3>
+                        <a href="trangbaiviet.php" class="btn btn-primary btn-sm mt-3">Xem tất cả tin tức</a>
                     </div>
-                <?php endforeach; ?>
+                <?php endif; ?>
+
             </div>
-            
-        <?php elseif (empty($featured_posts)): ?>
-            <p style="text-align: center; font-size: 18px; color: #7f8c8d; margin-top: 50px;">Hiện chưa có bài viết nào được đăng.</p>
-        <?php endif; ?>
+        </div>
     </div>
 </section>
 

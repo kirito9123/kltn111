@@ -53,7 +53,8 @@ if (isset($_GET['delid'])) {
         background-color: #a71d2a;
     }
 
-    td, th {
+    td,
+    th {
         text-align: center !important;
         vertical-align: middle !important;
     }
@@ -69,7 +70,6 @@ if (isset($_GET['delid'])) {
 <div class="grid_10">
     <div class="box round first grid">
         <h2>Danh sách khách hàng</h2>
-
         <div class="block" id="table-container">
             <?php if (isset($del_user)) echo "<p style='color:green; font-weight:bold;'>$del_user</p>"; ?>
 
@@ -103,8 +103,8 @@ if (isset($_GET['delid'])) {
                                 <td><?= $row['solandat'] ?? '0' ?></td>
                                 <td><?= $fm->textShorten($row['ghichu'] ?? '', 20) ?></td>
                                 <td>
-                                    <a class="btn-action btn-edit" href="useredit.php?id=<?= $row['id'] ?>">Sửa</a>
-                                    <a class="btn-action btn-delete" onclick="return confirm('Bạn muốn ẩn khách này?')" href="?delid=<?= $row['id'] ?>">Xóa</a>
+                                    <a class="btn-action btn-edit" href="customeredit.php?id=<?= $row['id'] ?>">Sửa</a>
+                                    <a class="btn-action btn-delete" onclick="return confirm('Bạn muốn ẩn khách này?')" href="customerlist_hidden.php?id=<?= $row['id'] ?>">Xóa</a>
                                 </td>
                             </tr>
                     <?php
@@ -130,7 +130,7 @@ if (isset($_GET['delid'])) {
 
 <!-- Cấu hình DataTables -->
 <script type="text/javascript">
-    $(document).ready(function () {
+    $(document).ready(function() {
         const table = $('#example').DataTable({
             pageLength: 10,
             lengthChange: false,
@@ -147,7 +147,7 @@ if (isset($_GET['delid'])) {
             }
         });
 
-        table.on('page.dt', function () {
+        table.on('page.dt', function() {
             $('html, body').animate({
                 scrollTop: $('#table-container').offset().top - 20
             }, 400);

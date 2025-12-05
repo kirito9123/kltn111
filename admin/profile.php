@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
     }
 }
 
-// Lấy thông tin
+// Lấy thông tin (Bao gồm cả lương nhờ đã sửa class NhanSu)
 $getProfile = $ns->getNhanSuByAdminId($id_admin);
 if ($getProfile) {
     $result = $getProfile->fetch_assoc();
@@ -70,7 +70,9 @@ if ($getProfile) {
         'namsinh_me' => '',
         'nghenghiep_me' => '',
         'sdt_me' => '',
-        'thongtin_them' => ''
+        'thongtin_them' => '',
+        'luong_ca' => 0,
+        'phu_cap' => 0
     ];
 }
 ?>
@@ -296,6 +298,27 @@ if ($getProfile) {
                                 <div class="form-group"><label>Ngày cấp</label><input type="date" name="ngaycap_cccd" class="form-control" value="<?php echo $result['ngaycap_cccd']; ?>"></div>
                             </div>
                             <div class="form-group"><label>Nơi cấp</label><input type="text" name="noicap_cccd" class="form-control" value="<?php echo $result['noicap_cccd']; ?>"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header" style="background: #27ae60;"><i class="fa fa-money"></i> Thông Tin Lương & Phúc Lợi</div>
+                        <div class="card-body">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label style="color:#27ae60;">Lương theo ca (VNĐ)</label>
+                                    <input type="text" class="form-control"
+                                        value="<?php echo isset($result['luong_ca']) ? number_format($result['luong_ca'], 0, ',', '.') : '0'; ?>"
+                                        readonly style="background-color: #e9ecef; font-weight: bold; color: #2d3436;">
+                                </div>
+                                <div class="form-group">
+                                    <label style="color:#27ae60;">Phụ cấp hàng tháng (VNĐ)</label>
+                                    <input type="text" class="form-control"
+                                        value="<?php echo isset($result['phu_cap']) ? number_format($result['phu_cap'], 0, ',', '.') : '0'; ?>"
+                                        readonly style="background-color: #e9ecef; font-weight: bold; color: #2d3436;">
+                                </div>
+                            </div>
+                            <small style="color: #7f8c8d; font-style: italic;">* Thông tin lương được quản lý bởi bộ phận Kế toán. Vui lòng liên hệ nếu có sai sót.</small>
                         </div>
                     </div>
 

@@ -1,41 +1,70 @@
 <?php
-$filepath = realpath(dirname(__FILE__));
-include_once ($filepath.'/../lib/database.php');
-include_once ($filepath.'/../helpers/format.php');
+// FILE: classes/baiviet.php
 
-class baiviet {
+$filepath = realpath(dirname(__FILE__));
+include_once($filepath . '/../lib/database.php');
+include_once($filepath . '/../helpers/format.php');
+
+class baiviet
+{
     private $db;
     private $fm;
     private $upload_dir = "../images/baiviet/";
 
-    public function __construct(){
+    public function __construct()
+    {
         $this->db = new Database();
-        $this->fm = new Format(); 
+        $this->fm = new Format();
         // Đảm bảo thư mục upload tồn tại
         if (!is_dir($this->upload_dir)) {
             mkdir($this->upload_dir, 0777, true);
         }
     }
 
-    // --- HELPER FUNCTIONS ---
+    /**
+     * Danh sách thể loại bài viết (Theo cấu trúc DB của bạn)
+     */
+    public function get_all_categories()
+    {
+        return [
+            1 => 'Hướng dẫn nấu ăn',
+            2 => 'Tin thế giới',
+            3 => 'Tin nhà hàng',
+            4 => 'Tin khuyến mãi',
+            5 => 'Tin khác'
+        ];
+    }
 
-    private function process_file_upload($file_key, $old_file_name = null) {
-        $file_name = $_FILES[$file_key]['name'];
-        $file_temp = $_FILES[$file_key]['tmp_name'];
+    /**
+     * Lấy tên thể loại từ ID
+     */
+    public function get_category_name($id)
+    {
+        $cats = $this->get_all_categories();
+        return isset($cats[$id]) ? $cats[$id] : 'Chưa phân loại';
+    }
 
-        if (empty($file_name)) {
+    // --- HELPER: Xử lý upload file ---
+    private function process_file_upload($file_key, $old_file_name = null)
+    {
+        if (!isset($_FILES[$file_key]) || empty($_FILES[$file_key]['name'])) {
             return $old_file_name; // Giữ lại tên file cũ nếu không upload file mới
         }
 
+        $file_name = $_FILES[$file_key]['name'];
+        $file_temp = $_FILES[$file_key]['tmp_name'];
+
         $div = explode('.', $file_name);
         $file_ext = strtolower(end($div));
-        $unique_image = substr(md5(time() . $file_key), 0, 15).'.'.$file_ext;
-        $uploaded_image = $this->upload_dir . $unique_image; 
-        
-        if ($file_ext === 'jpg' || $file_ext === 'jpeg' || $file_ext === 'png' || $file_ext === 'gif') {
+        $unique_image = substr(md5(time() . $file_key . rand()), 0, 15) . '.' . $file_ext;
+        $uploaded_image = $this->upload_dir . $unique_image;
+
+        $permitted = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+        if (in_array($file_ext, $permitted)) {
             move_uploaded_file($file_temp, $uploaded_image);
-            
-            // Xóa file cũ nếu có và đang update
+
+            // Xóa file cũ nếu có và đang update (để tránh rác server)
             if ($old_file_name && $old_file_name !== $unique_image && file_exists($this->upload_dir . $old_file_name)) {
                 unlink($this->upload_dir . $old_file_name);
             }
@@ -46,182 +75,197 @@ class baiviet {
 
     // --- CRUD FUNCTIONS ---
 
-    public function insert_baiviet($data, $files) {
+    public function insert_baiviet($data, $files)
+    {
         $ten_baiviet = mysqli_real_escape_string($this->db->link, $data['ten_baiviet']);
         $noidung_tongquan = mysqli_real_escape_string($this->db->link, $data['noidung_tongquan']);
-        $ngay_tao = date('Y-m-d H:i:s');
-        $xoa = 0; // Mặc định chưa xóa
 
-        // 1. Validate mandatory fields
-        if(empty($ten_baiviet) || empty($noidung_tongquan)) {
+        // Lấy thể loại từ form, mặc định là 5 (Tin khác) nếu không chọn
+        $theloai = isset($data['theloai']) ? (int)$data['theloai'] : 5;
+
+        $ngay_tao = date('Y-m-d H:i:s');
+        $xoa = 0;
+
+        if (empty($ten_baiviet) || empty($noidung_tongquan)) {
             return "<span class='error'>Tên bài viết và Nội dung tổng quan không được để trống!</span>";
         }
 
-        // 2. Process contents
+        // Xử lý nội dung chi tiết (1-5)
         $contents = [];
         for ($i = 1; $i <= 5; $i++) {
-            $contents['noidung_'.$i] = mysqli_real_escape_string($this->db->link, $data['noidung_'.$i] ?? '');
+            $contents['noidung_' . $i] = mysqli_real_escape_string($this->db->link, $data['noidung_' . $i] ?? '');
         }
 
-        // 3. Process images (6 fields)
+        // Xử lý hình ảnh
         $images = [];
         $images['anh_chinh'] = $this->process_file_upload('anh_chinh');
-        for ($i = 1; $i <= 5; $i++) {
-            $images['anh_'.$i] = $this->process_file_upload('anh_'.$i);
+        if ($images['anh_chinh'] === false && !empty($_FILES['anh_chinh']['name'])) {
+            return "<span class='error'>Ảnh chính không đúng định dạng!</span>";
         }
-        
-        // 4. Construct Query
-        $field_names = "ten_baiviet, noidung_tongquan, anh_chinh, ngay_tao, xoa";
-        $field_values = "'$ten_baiviet', '$noidung_tongquan', '{$images['anh_chinh']}', '$ngay_tao', '$xoa'";
 
-        // Add optional content and images
+        for ($i = 1; $i <= 5; $i++) {
+            $images['anh_' . $i] = $this->process_file_upload('anh_' . $i);
+        }
+
+        // Tạo câu lệnh SQL chèn dữ liệu
+        $field_names = "ten_baiviet, noidung_tongquan, theloai, anh_chinh, ngay_tao, xoa";
+        $field_values = "'$ten_baiviet', '$noidung_tongquan', '$theloai', '{$images['anh_chinh']}', '$ngay_tao', '$xoa'";
+
         for ($i = 1; $i <= 5; $i++) {
             $field_names .= ", anh_{$i}, noidung_{$i}";
-            $field_values .= ", '{$images['anh_'.$i]}', '{$contents['noidung_'.$i]}'";
+            $field_values .= ", '{$images['anh_' .$i]}', '{$contents['noidung_' .$i]}'";
         }
 
         $query = "INSERT INTO baiviet ({$field_names}) VALUES ({$field_values})";
         $result = $this->db->insert($query);
 
         if ($result) {
-            // Chuyển hướng sau khi thêm thành công
             echo "<script>alert('Thêm bài viết thành công!'); window.location.href='baivietlist.php';</script>";
             exit();
         } else {
-            return "<span class='error'>Thêm bài viết thất bại!</span>";
+            return "<span class='error'>Thêm bài viết thất bại! Lỗi: " . $this->db->link->error . "</span>";
         }
     }
 
-    public function show_baiviet($xoa_status = 0) {
-        $query = "SELECT * FROM baiviet WHERE xoa = '$xoa_status' ORDER BY id_baiviet DESC";
+    /**
+     * Lấy danh sách bài viết (Có hỗ trợ lọc theo danh mục)
+     * @param int $xoa_status Trạng thái xóa (0: hiện, 1: ẩn)
+     * @param int|null $catid ID danh mục cần lọc (null = lấy hết)
+     */
+    public function show_baiviet($xoa_status = 0, $catid = null)
+    {
+        $xoa_status = mysqli_real_escape_string($this->db->link, $xoa_status);
+
+        $query = "SELECT * FROM baiviet WHERE xoa = '$xoa_status'";
+
+        // Nếu có lọc theo danh mục
+        if ($catid !== null && is_numeric($catid)) {
+            $catid = (int)$catid;
+            $query .= " AND theloai = '$catid'";
+        }
+
+        $query .= " ORDER BY id_baiviet DESC";
+
         $result = $this->db->select($query);
         return $result;
     }
-    
-    public function get_baiviet_by_id($id) {
+
+    public function get_baiviet_by_id($id)
+    {
         $id = mysqli_real_escape_string($this->db->link, $id);
         $query = "SELECT * FROM baiviet WHERE id_baiviet = '$id'";
         $result = $this->db->select($query);
         return $result ? $result->fetch_assoc() : false;
     }
 
-    public function update_baiviet($data, $files, $id) {
+    public function update_baiviet($data, $files, $id)
+    {
         $id = mysqli_real_escape_string($this->db->link, $id);
         $ten_baiviet = mysqli_real_escape_string($this->db->link, $data['ten_baiviet']);
         $noidung_tongquan = mysqli_real_escape_string($this->db->link, $data['noidung_tongquan']);
-        
-        // Lấy thông tin bài viết cũ để xử lý hình ảnh
+
+        // Cập nhật thể loại
+        $theloai = isset($data['theloai']) ? (int)$data['theloai'] : 5;
+
         $old_baiviet = $this->get_baiviet_by_id($id);
         if (!$old_baiviet) {
             return "<span class='error'>Không tìm thấy Bài viết để cập nhật!</span>";
         }
 
         // Bắt đầu chuỗi SET
-        $update_set = "ten_baiviet = '$ten_baiviet', noidung_tongquan = '$noidung_tongquan'";
+        $update_set = "ten_baiviet = '$ten_baiviet', noidung_tongquan = '$noidung_tongquan', theloai = '$theloai'";
 
-        // 1. Process contents (noidung_1 to noidung_5)
+        // Xử lý nội dung 1-5
         for ($i = 1; $i <= 5; $i++) {
-            $noidung_i = mysqli_real_escape_string($this->db->link, $data['noidung_'.$i] ?? '');
+            $noidung_i = mysqli_real_escape_string($this->db->link, $data['noidung_' . $i] ?? '');
             $update_set .= ", noidung_{$i} = '$noidung_i'";
         }
 
-        // 2. Process images (anh_chinh, anh_1 to anh_5)
+        // Xử lý hình ảnh
         $image_fields = ['anh_chinh', 'anh_1', 'anh_2', 'anh_3', 'anh_4', 'anh_5'];
         foreach ($image_fields as $field) {
             $old_image_name = $old_baiviet[$field];
             $new_image_name = $this->process_file_upload($field, $old_image_name);
-            
-            if ($new_image_name === false) {
-                 return "<span class='error'>File ảnh {$field} không đúng định dạng!</span>";
+
+            if ($new_image_name === false && !empty($_FILES[$field]['name'])) {
+                return "<span class='error'>File ảnh {$field} không đúng định dạng!</span>";
             }
-            $update_set .= ", {$field} = '$new_image_name'";
+
+            if ($new_image_name !== false) {
+                $update_set .= ", {$field} = '$new_image_name'";
+            }
         }
 
-        // 3. Construct Final Query
         $query = "UPDATE baiviet SET {$update_set} WHERE id_baiviet = '$id'";
         $result = $this->db->update($query);
 
         if ($result) {
-            // === PHẦN ĐÃ CHỈNH SỬA: Thông báo và Chuyển hướng ===
             echo "<script>alert('Cập nhật bài viết thành công!'); window.location.href='baivietlist.php';</script>";
-            exit(); 
-            // ======================================================
+            exit();
         } else {
             return "<span class='error'>Cập nhật bài viết thất bại!</span>";
         }
     }
 
-    // Xóa mềm (chuyển xoa = 1)
-    public function del_baiviet($id) {
+    // Xóa mềm (vào thùng rác)
+    public function del_baiviet($id)
+    {
         $id = mysqli_real_escape_string($this->db->link, $id);
         $query = "UPDATE baiviet SET xoa = 1 WHERE id_baiviet = '$id'";
         $result = $this->db->update($query);
         if ($result) {
-            echo "<script>alert('Ẩn bài viết thành công'); window.location.href='baivietlist.php';</script>";
-            exit();
+            return "<span style='color:green;'>Đã chuyển bài viết vào danh sách ẩn.</span>";
         } else {
-            echo "<script>alert('Ẩn bài viết thất bại'); window.location.href='baivietlist.php';</script>";
-            exit();
+            return "<span class='error'>Lỗi khi ẩn bài viết.</span>";
         }
     }
 
-    // Khôi phục (chuyển xoa = 0)
-    public function restore_baiviet($id) {
+    // Khôi phục
+    public function restore_baiviet($id)
+    {
         $id = mysqli_real_escape_string($this->db->link, $id);
         $query = "UPDATE baiviet SET xoa = 0 WHERE id_baiviet = '$id'";
         $result = $this->db->update($query);
         if ($result) {
             echo "<script>alert('Khôi phục bài viết thành công'); window.location.href='baivietlist_hidden.php';</script>";
             exit();
-        } else {
-            echo "<script>alert('Khôi phục bài viết thất bại'); window.location.href='baivietlist_hidden.php';</script>";
-            exit();
         }
     }
 
-    // Xóa vĩnh viễn (bao gồm xóa cả file ảnh)
-    public function delete_baiviet_permanently($id) {
+    // Xóa vĩnh viễn
+    public function delete_baiviet_permanently($id)
+    {
         $id = mysqli_real_escape_string($this->db->link, $id);
         $old_baiviet = $this->get_baiviet_by_id($id);
-        
+
         if ($old_baiviet) {
-             // Xóa các file ảnh
-             $image_fields = ['anh_chinh', 'anh_1', 'anh_2', 'anh_3', 'anh_4', 'anh_5'];
-             foreach ($image_fields as $field) {
-                 if (!empty($old_baiviet[$field]) && file_exists($this->upload_dir . $old_baiviet[$field])) {
-                     unlink($this->upload_dir . $old_baiviet[$field]);
-                 }
-             }
+            $image_fields = ['anh_chinh', 'anh_1', 'anh_2', 'anh_3', 'anh_4', 'anh_5'];
+            foreach ($image_fields as $field) {
+                if (!empty($old_baiviet[$field]) && file_exists($this->upload_dir . $old_baiviet[$field])) {
+                    unlink($this->upload_dir . $old_baiviet[$field]);
+                }
+            }
         }
 
         $query = "DELETE FROM baiviet WHERE id_baiviet = '$id'";
         $result = $this->db->delete($query);
-        
+
         if ($result) {
             echo "<script>alert('Xóa hoàn toàn bài viết thành công'); window.location.href='baivietlist_hidden.php';</script>";
-            exit();
-        } else {
-            echo "<script>alert('Xóa hoàn toàn bài viết thất bại'); window.location.href='baivietlist_hidden.php';</script>";
             exit();
         }
     }
 
-    /**
-     * Lấy danh sách các bài viết mới nhất (không bị xóa)
-     * @param int $limit Số lượng bài viết muốn lấy
-     * @return mixed Kết quả truy vấn (mysqli_result) hoặc false
-     */
+    // Lấy bài viết mới nhất (cho Sidebar hoặc Footer)
     public function get_latest_posts($limit)
     {
-        $limit = (int)$limit; // Đảm bảo limit là số nguyên
-        // Lấy bài viết không bị xóa (xoa = 0)
-        $query = "SELECT id_baiviet, ten_baiviet, anh_chinh, ngay_tao FROM baiviet 
+        $limit = (int)$limit;
+        $query = "SELECT id_baiviet, ten_baiviet, anh_chinh, ngay_tao, theloai FROM baiviet 
                   WHERE xoa = 0 
                   ORDER BY ngay_tao DESC 
                   LIMIT $limit";
 
-        $result = $this->db->select($query); 
+        $result = $this->db->select($query);
         return $result;
     }
 }
-?>

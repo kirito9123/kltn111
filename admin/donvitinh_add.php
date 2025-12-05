@@ -24,7 +24,7 @@ $msg = '';
 $dvt = new donvitinh(); // Khởi tạo đối tượng
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
-    
+
     $ten_dvt = $_POST['ten_dvt'] ?? '';
     $nhom    = $_POST['nhom']    ?? '';
     $he_so   = $_POST['he_so']   ?? '';
@@ -51,41 +51,92 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
 
 <style>
     .form-wrapper {
-        max-width: 750px; margin: 40px auto; padding: 30px 40px;
-        background-color: #fff; border-radius: 12px;
+        max-width: 750px;
+        margin: 40px auto;
+        padding: 30px 40px;
+        background-color: #fff;
+        border-radius: 12px;
         box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
         font-family: 'Segoe UI', sans-serif;
     }
-    .form-wrapper h2 { text-align: center; margin-bottom: 30px; font-size: 26px; color: #2c3e50; }
-    .form-group { margin-bottom: 20px; }
-    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
-    
+
+    .form-wrapper h2 {
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 26px;
+        color: #2c3e50;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+    }
+
     .form-group input[type="text"],
     .form-group input[type="number"],
-    .form-group select { /* Thêm style cho thẻ select */
-        width: 100%; padding: 10px 14px; border-radius: 8px;
-        border: 1px solid #ccc; font-size: 15px;
+    .form-group select {
+        /* Thêm style cho thẻ select */
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 15px;
         background-color: #fff;
     }
-    
-    .form-group input:focus, .form-group select:focus { border-color: #007bff; outline: none; }
-    
-    .form-actions { text-align: center; margin-top: 25px; }
-    
+
+    .form-group input:focus,
+    .form-group select:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+
+    .form-actions {
+        text-align: center;
+        margin-top: 25px;
+    }
+
     .btn-main {
-        background-color: #007bff; color: white; padding: 10px 30px;
-        font-size: 16px; border: none; border-radius: 8px; cursor: pointer;
-        transition: background-color 0.3s ease; margin-right: 10px;
+        background-color: #007bff;
+        color: white;
+        padding: 10px 30px;
+        font-size: 16px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        margin-right: 10px;
     }
-    .btn-main:hover { background-color: #0056b3; }
-    
+
+    .btn-main:hover {
+        background-color: #0056b3;
+    }
+
     .btn-back {
-        background-color: #6c757d; color: white; padding: 10px 22px;
-        font-size: 15px; border: none; border-radius: 8px; cursor: pointer;
+        background-color: #6c757d;
+        color: white;
+        padding: 10px 22px;
+        font-size: 15px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
     }
-    .btn-back:hover { background-color: #5a6268; }
-    
-    .helper-text { font-size: 13px; color: #666; margin-top: 5px; font-style: italic; }
+
+    .btn-back:hover {
+        background-color: #5a6268;
+    }
+
+    .helper-text {
+        font-size: 13px;
+        color: #666;
+        margin-top: 5px;
+        font-style: italic;
+    }
 </style>
 
 <div class="grid_10">
@@ -94,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
             <h2>Thêm Đơn Vị Tính Mới</h2>
 
             <form action="donvitinh_add.php" method="post">
-                
+
                 <div class="form-group">
                     <label>Tên đơn vị</label>
                     <input type="text" name="ten_dvt" required placeholder="Ví dụ: kg, Thùng, Hộp...">
@@ -113,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit'])) {
                 <div class="form-group">
                     <label>Hệ số quy đổi (So với đơn vị chuẩn)</label>
                     <input type="number" name="he_so" required min="0.0001" step="0.0001" placeholder="Nhập số...">
-                    
+
                     <div class="helper-text">
                         <b>Gợi ý nhập:</b><br>
                         - Nếu là đơn vị chuẩn (g, ml, cái): Nhập <b>1</b><br>

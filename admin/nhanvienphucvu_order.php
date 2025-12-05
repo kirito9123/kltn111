@@ -1,19 +1,32 @@
 <?php
 /* ================ ADMIN: MÀN HÌNH PHỤC VỤ ================ */
-require_once '../classes/nhanvienphucvu.php'; 
+require_once '../classes/nhanvienphucvu.php';
 $phucvu = new nhanvienphucvu();
 
 /* ====== GIAO DIỆN ====== */
 require_once 'inc/header.php';
 require_once 'inc/sidebar.php';
 
-function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
+function vnd($n)
+{
+    return number_format((float)$n, 0, ',', '.') . ' đ';
+}
 ?>
 
 <style>
     /* === FIX LAYOUT === */
-    .container_12 { display: block !important; width: 100% !important; overflow: hidden !important; }
-    .grid_2 { float: left !important; width: 230px !important; margin: 0 !important; }
+    .container_12 {
+        display: block !important;
+        width: 100% !important;
+        overflow: hidden !important;
+    }
+
+    .grid_2 {
+        float: left !important;
+        width: 230px !important;
+        margin: 0 !important;
+    }
+
     .grid_10 {
         float: left !important;
         width: calc(100% - 230px) !important;
@@ -23,79 +36,229 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
         background: #f4f6f9;
         min-height: 100vh;
     }
-    .grid_10 .clear { display: none; }
+
+    .grid_10 .clear {
+        display: none;
+    }
 
     /* === TABS GIAO DIỆN (MỚI) === */
-    .tab-container { display: flex; gap: 15px; margin-bottom: 25px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+    .tab-container {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 25px;
+        border-bottom: 2px solid #ddd;
+        padding-bottom: 10px;
+    }
+
     .tab-btn {
-        padding: 12px 25px; border: none; background: #e0e0e0; border-radius: 8px;
-        font-size: 16px; font-weight: 700; color: #555; cursor: pointer; transition: 0.3s;
-        display: flex; align-items: center; gap: 10px;
+        padding: 12px 25px;
+        border: none;
+        background: #e0e0e0;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 700;
+        color: #555;
+        cursor: pointer;
+        transition: 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
-    .tab-btn.active { background: #2980b9; color: white; box-shadow: 0 4px 10px rgba(41, 128, 185, 0.4); }
-    .tab-btn:hover:not(.active) { background: #dcdcdc; }
-    
-    .badge { 
-        background: #e74c3c; color: white; padding: 2px 8px; 
-        border-radius: 12px; font-size: 13px; min-width: 20px; text-align: center;
+
+    .tab-btn.active {
+        background: #2980b9;
+        color: white;
+        box-shadow: 0 4px 10px rgba(41, 128, 185, 0.4);
     }
-    .badge-gray { background: #7f8c8d; }
-    .badge-cancelled { background: #c0392b; }
+
+    .tab-btn:hover:not(.active) {
+        background: #dcdcdc;
+    }
+
+    .badge {
+        background: #e74c3c;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 13px;
+        min-width: 20px;
+        text-align: center;
+    }
+
+    .badge-gray {
+        background: #7f8c8d;
+    }
+
+    .badge-cancelled {
+        background: #c0392b;
+    }
 
     /* === DANH SÁCH ĐƠN === */
-    .service-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
-    
-    .service-card {
-        background: #fff; border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;
-        border: 2px solid #2980b9; 
+    .service-board {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 25px;
     }
+
+    .service-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        border: 2px solid #2980b9;
+    }
+
     /* Thẻ lịch sử sẽ có màu xám để phân biệt */
-    .service-card.history-card { border-color: #bdc3c7; opacity: 0.95; }
-    .service-card.history-card .service-card__header { background: #7f8c8d; }
+    .service-card.history-card {
+        border-color: #bdc3c7;
+        opacity: 0.95;
+    }
+
+    .service-card.history-card .service-card__header {
+        background: #7f8c8d;
+    }
 
     /* Thẻ đơn bị hủy */
-    .service-card.cancelled-card { border-color: #c0392b; opacity: 0.95; }
-    .service-card.cancelled-card .service-card__header { background: #c0392b; }
+    .service-card.cancelled-card {
+        border-color: #c0392b;
+        opacity: 0.95;
+    }
 
-    .service-card__header { padding: 15px; background: #2980b9; color: white; display: flex; justify-content: space-between; align-items: flex-start; }
-    .card-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
-    .card-id { font-size: 13px; opacity: 0.9; font-weight: normal; display: block; }
-    .card-time { font-size: 20px; font-weight: 800; }
+    .service-card.cancelled-card .service-card__header {
+        background: #c0392b;
+    }
 
-    .service-card__body { padding: 15px; background: #ecf0f1; }
-    .item-list-container { max-height: 250px; overflow-y: auto; margin-bottom: 10px; padding-right: 5px; }
-    .item-list { list-style: none; margin: 0; padding: 0; }
-    .order-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dotted #bdc3c7; align-items: center; }
-    .item-name { font-weight: 600; color: #333; font-size: 15px; flex: 1; padding-right: 10px; }
-    .item-qty { font-weight: 900; color: #e74c3c; font-size: 18px; }
-    
-    .note-box { background: #f1c40f; color: #333; padding: 10px; font-size: 14px; font-weight: 600; border-radius: 6px; margin-top: 10px; }
+    .service-card__header {
+        padding: 15px;
+        background: #2980b9;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
 
-    .service-card__footer { padding: 15px; background: #fff; text-align: center; }
-    
+    .card-title {
+        font-size: 20px;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+
+    .card-id {
+        font-size: 13px;
+        opacity: 0.9;
+        font-weight: normal;
+        display: block;
+    }
+
+    .card-time {
+        font-size: 20px;
+        font-weight: 800;
+    }
+
+    .service-card__body {
+        padding: 15px;
+        background: #ecf0f1;
+    }
+
+    .item-list-container {
+        max-height: 250px;
+        overflow-y: auto;
+        margin-bottom: 10px;
+        padding-right: 5px;
+    }
+
+    .item-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .order-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px dotted #bdc3c7;
+        align-items: center;
+    }
+
+    .item-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 15px;
+        flex: 1;
+        padding-right: 10px;
+    }
+
+    .item-qty {
+        font-weight: 900;
+        color: #e74c3c;
+        font-size: 18px;
+    }
+
+    .note-box {
+        background: #f1c40f;
+        color: #333;
+        padding: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 6px;
+        margin-top: 10px;
+    }
+
+    .service-card__footer {
+        padding: 15px;
+        background: #fff;
+        text-align: center;
+    }
+
     /* Nút Đã Giao */
-    .btn-served { width: 100%; padding: 15px; border: none; border-radius: 8px; background: #27ae60; color: white; font-weight: 800; cursor: pointer; font-size: 16px; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-served:hover { background: #219150; }
-    
+    .btn-served {
+        width: 100%;
+        padding: 15px;
+        border: none;
+        border-radius: 8px;
+        background: #27ae60;
+        color: white;
+        font-weight: 800;
+        cursor: pointer;
+        font-size: 16px;
+        transition: 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn-served:hover {
+        background: #219150;
+    }
+
     /* Trạng thái Lịch sử / Hủy */
-    .history-status { color: #27ae60; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .history-status {
+        color: #27ae60;
+        font-weight: 700;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
 </style>
 
 <div class="grid_10">
     <div class="box round first grid" style="background: transparent; border: none; box-shadow: none;">
-        
+
         <h2 class="service-title" style="margin-bottom: 10px;">
             <span style="font-size: 32px;">🔔</span> MÀN HÌNH PHỤC VỤ
         </h2>
 
         <div class="tab-container">
             <button class="tab-btn active" onclick="switchTab('wait')">
-                <i class="fa fa-clock-o"></i> CHỜ GIAO MÓN 
+                <i class="fa fa-clock-o"></i> CHỜ GIAO MÓN
                 <span id="badge-wait" class="badge">0</span>
             </button>
             <button class="tab-btn" onclick="switchTab('history')">
-                <i class="fa fa-history"></i> LỊCH SỬ HÔM NAY 
+                <i class="fa fa-history"></i> LỊCH SỬ HÔM NAY
                 <span id="badge-history" class="badge badge-gray">0</span>
             </button>
             <button class="tab-btn" onclick="switchTab('cancelled')">
@@ -130,14 +293,14 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
 </div>
 
 <script>
-    const API_URL = "api_service.php"; 
-    const NOTIFICATION_INTERVAL = 3000; 
+    const API_URL = "api_service.php";
+    const NOTIFICATION_INTERVAL = 3000;
     let currentTab = 'wait'; // Mặc định là tab chờ
 
     // Hàm chuyển Tab
     function switchTab(tab) {
         currentTab = tab;
-        
+
         // Đổi class Active cho nút bấm
         const btns = document.querySelectorAll('.tab-btn');
         btns.forEach(btn => btn.classList.remove('active'));
@@ -146,8 +309,8 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
         if (tab === 'cancelled') btns[2].classList.add('active');
 
         // Ẩn/Hiện container tương ứng
-        document.getElementById('wait-orders-container').style.display      = (tab === 'wait') ? 'grid' : 'none';
-        document.getElementById('history-orders-container').style.display   = (tab === 'history') ? 'grid' : 'none';
+        document.getElementById('wait-orders-container').style.display = (tab === 'wait') ? 'grid' : 'none';
+        document.getElementById('history-orders-container').style.display = (tab === 'history') ? 'grid' : 'none';
         document.getElementById('cancelled-orders-container').style.display = (tab === 'cancelled') ? 'grid' : 'none';
     }
 
@@ -195,10 +358,10 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
             card.className = 'service-card';
             card.setAttribute('data-id', order.id);
         }
-        
-        const labelText = isCancelled 
-            ? 'DANH SÁCH MÓN TRONG ĐƠN HỦY:' 
-            : (isHistory ? 'DANH SÁCH MÓN ĐÃ GIAO:' : 'MÓN BẾP ĐÃ LÀM XONG CẦN GIAO:');
+
+        const labelText = isCancelled ?
+            'DANH SÁCH MÓN TRONG ĐƠN HỦY:' :
+            (isHistory ? 'DANH SÁCH MÓN ĐÃ GIAO:' : 'MÓN BẾP ĐÃ LÀM XONG CẦN GIAO:');
 
         card.innerHTML = `
             <div class="service-card__header">
@@ -226,27 +389,29 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
 
     // Hàm Polling chính
     function fetchNewOrders() {
-        const waitContainer      = document.getElementById('wait-orders-container');
-        const historyContainer   = document.getElementById('history-orders-container');
+        const waitContainer = document.getElementById('wait-orders-container');
+        const historyContainer = document.getElementById('history-orders-container');
         const cancelledContainer = document.getElementById('cancelled-orders-container');
-        
+
         fetch(API_URL)
             .then(res => {
-                if (!res.ok) { throw new Error(`Lỗi HTTP: ${res.status}`); }
+                if (!res.ok) {
+                    throw new Error(`Lỗi HTTP: ${res.status}`);
+                }
                 return res.json();
             })
             .then(data => {
                 if (!data) return;
 
                 // 1. Cập nhật số lượng Badge trên Tab
-                const waitCount      = data.count || 0;
-                const historyCount   = data.history ? data.history.length : 0;
-                const cancelledCount = (typeof data.count_cancelled !== 'undefined')
-                    ? data.count_cancelled
-                    : (data.cancelled ? data.cancelled.length : 0);
+                const waitCount = data.count || 0;
+                const historyCount = data.history ? data.history.length : 0;
+                const cancelledCount = (typeof data.count_cancelled !== 'undefined') ?
+                    data.count_cancelled :
+                    (data.cancelled ? data.cancelled.length : 0);
 
-                document.getElementById('badge-wait').innerText      = waitCount;
-                document.getElementById('badge-history').innerText   = historyCount;
+                document.getElementById('badge-wait').innerText = waitCount;
+                document.getElementById('badge-history').innerText = historyCount;
                 document.getElementById('badge-cancelled').innerText = cancelledCount;
 
                 // 2. Render Tab Chờ Giao
@@ -293,8 +458,8 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
             .catch(err => {
                 console.error("Lỗi Polling:", err);
                 const errorHtml = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:red;">Lỗi kết nối hoặc tải dữ liệu!</div>`;
-                if (currentTab === 'wait')      document.getElementById('wait-orders-container').innerHTML = errorHtml;
-                if (currentTab === 'history')   document.getElementById('history-orders-container').innerHTML = errorHtml;
+                if (currentTab === 'wait') document.getElementById('wait-orders-container').innerHTML = errorHtml;
+                if (currentTab === 'history') document.getElementById('history-orders-container').innerHTML = errorHtml;
                 if (currentTab === 'cancelled') document.getElementById('cancelled-orders-container').innerHTML = errorHtml;
             });
     }
@@ -308,26 +473,28 @@ function vnd($n) { return number_format((float)$n, 0, ',', '.') . ' đ'; }
             if (!confirm("Xác nhận đã giao món cho đơn #" + id + "?")) return;
 
             fetch(API_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: "action=mark_served&id=" + encodeURIComponent(id)
-            })
-            .then(res => res.text())
-            .then(data => {
-                if (data.trim() === "success") {
-                    // Hiệu ứng biến mất
-                    card.style.transition = "all 0.5s";
-                    card.style.opacity = "0";
-                    card.style.transform = "scale(0.9)";
-                    setTimeout(() => {
-                        card.remove();
-                        fetchNewOrders(); // Cập nhật lại ngay để đơn đó bay sang tab Lịch sử
-                    }, 500);
-                } else {
-                    alert("Lỗi cập nhật trạng thái phục vụ!");
-                }
-            })
-            .catch(err => alert("Lỗi kết nối tới server!"));
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: "action=mark_served&id=" + encodeURIComponent(id)
+                })
+                .then(res => res.text())
+                .then(data => {
+                    if (data.trim() === "success") {
+                        // Hiệu ứng biến mất
+                        card.style.transition = "all 0.5s";
+                        card.style.opacity = "0";
+                        card.style.transform = "scale(0.9)";
+                        setTimeout(() => {
+                            card.remove();
+                            fetchNewOrders(); // Cập nhật lại ngay để đơn đó bay sang tab Lịch sử
+                        }, 500);
+                    } else {
+                        alert("Lỗi cập nhật trạng thái phục vụ!");
+                    }
+                })
+                .catch(err => alert("Lỗi kết nối tới server!"));
         }
     });
 
